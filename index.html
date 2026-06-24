@@ -13,8 +13,7 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <h1>立體圖形建構室</h1>
-    <div class="subtitle">用「頂點」和「稜」自由組成立體圖形。支援電腦、iPad 及手機。</div>
+    <h1>立體圖形建構室</h1><div class="subtitle">用「頂點」和「稜」自由組成立體圖形。支援電腦、iPad 及手機。</div>
     <div class="section"><div class="section-title">1. 選擇操作模式</div><div class="grid2"><button id="modeOrbit" class="active">旋轉觀察</button><button id="modeMove">移動頂點</button><button id="modeEdge">連接稜</button><button id="modeDelete">刪除物件</button></div><div class="hint" id="modeHint">拖動畫面旋轉；雙指或滑鼠滾輪縮放。</div></div>
     <div class="section"><div class="section-title">2. 建立與修改</div><div class="grid2"><button id="addVertex" class="primary">＋ 新增頂點</button><button id="addEdge">＋ 連接稜</button><button id="removeLastVertex" class="danger">－ 最後頂點</button><button id="removeLastEdge" class="danger">－ 最後一條稜</button></div><button id="clearAll" class="danger" style="margin-top:8px">清除全部</button><div class="selected-list" id="selectedInfo">尚未選取頂點</div></div>
     <div class="section"><div class="section-title">3. 預設立體圖形</div><select id="preset"><option value="">選擇圖形……</option><option value="cube">正方體</option><option value="cuboid">長方體</option><option value="tetra">四面體／三角錐</option><option value="squarePyramid">四角錐</option><option value="triPrism">三角柱</option><option value="octa">八面體</option></select><button id="loadPreset" style="margin-top:8px">載入預設圖形</button></div>
@@ -24,10 +23,11 @@
   </aside>
   <main class="viewer"><div id="canvasWrap"></div><div class="topbar"><div class="badge" id="modeBadge">模式：旋轉觀察</div><div class="badge">拖動旋轉・點選頂點・自由建構</div></div><div class="toast" id="toast"></div><button class="mobile-toggle" id="mobileToggle">工具</button></main>
 </div>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.161.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.161.0/examples/jsm/"}}</script>
 <script type="module">
-import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
-import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/TransformControls.js';
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {TransformControls} from 'three/addons/controls/TransformControls.js';
 const wrap=document.getElementById('canvasWrap'),scene=new THREE.Scene();scene.background=new THREE.Color(0xeef3f9);const camera=new THREE.PerspectiveCamera(45,1,.1,1000);camera.position.set(7,6,8);const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;wrap.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xffffff,0x64748b,2));const sun=new THREE.DirectionalLight(0xffffff,2.2);sun.position.set(6,10,7);sun.castShadow=true;scene.add(sun);const grid=new THREE.GridHelper(20,20,0x8fa6c2,0xcbd5e1);grid.position.y=-2.5;scene.add(grid);const orbit=new OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.dampingFactor=.08;const transform=new TransformControls(camera,renderer.domElement);transform.setMode('translate');transform.setSize(.75);transform.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);transform.addEventListener('objectChange',()=>{updateEdges();updateLabels()});scene.add(transform);const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),vertices=[],edges=[],labels=[];let mode='orbit',selected=[],labelsVisible=true;const vertexGeo=new THREE.SphereGeometry(.18,24,16),vertexMat=new THREE.MeshStandardMaterial({color:0x2563eb,roughness:.35}),selectedMat=new THREE.MeshStandardMaterial({color:0xf59e0b}),edgeMat=new THREE.MeshStandardMaterial({color:0x172033});
 function makeLabel(text){const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='rgba(255,255,255,.95)';x.beginPath();x.arc(64,64,33,0,Math.PI*2);x.fill();x.strokeStyle='#2563eb';x.lineWidth=5;x.stroke();x.fillStyle='#172033';x.font='bold 42px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,64,66);const t=new THREE.CanvasTexture(c),s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));s.scale.set(.58,.58,.58);return s}
 function addVertex(pos=new THREE.Vector3()){const m=new THREE.Mesh(vertexGeo,vertexMat.clone());m.position.copy(pos);m.userData={type:'vertex',id:vertices.length};scene.add(m);vertices.push(m);const l=makeLabel(String(vertices.length));scene.add(l);labels.push(l);updateLabels();updateUI();return m}
