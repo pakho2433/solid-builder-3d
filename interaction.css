@@ -1,0 +1,5 @@
+.tool-card{cursor:pointer;transition:transform .15s,border-color .15s,background .15s,box-shadow .15s}
+.tool-card.active{border-color:#16a36a;background:#ecfdf5;box-shadow:0 0 0 3px rgba(22,163,106,.18),0 8px 18px rgba(22,163,106,.12)}
+.tool-card.active .tool-copy{color:#087a4d}
+.tool-card.active small{color:#087a4d}
+@media (pointer:coarse){.tool-card{min-height:72px}.tool-card.active{transform:scale(.98)}}
