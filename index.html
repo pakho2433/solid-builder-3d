@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta name="theme-color" content="#edf4fb" />
 <title>立體圖形建構室｜自動吸附連接</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div class="app">
@@ -15,7 +15,7 @@
 </header>
 <main class="workspace">
   <div class="canvas-wrap" id="canvasWrap"></div>
-  <div class="hud"><div class="hud-left"><div class="pill"><b id="vertexCount">0</b>頂點</div><div class="pill"><b id="edgeCount">0</b>稜</div></div><div class="hud-right"><select class="guide-select" id="guideSelect"><option value="none">自由創作</option><option value="cube">正方體導引</option><option value="cuboid">長方體導引</option></select><button class="icon-btn" id="resetViewBtn" title="重設視角">↻</button></div></div>
+  <div class="hud"><div class="hud-left"><div class="pill"><b id="vertexCount">0</b>頂點</div><div class="pill"><b id="edgeCount">0</b>稜</div></div><div class="hud-right"><select class="guide-select" id="guideSelect"><option value="none">自由創作</option><option value="cube">正方體導引</option><option value="cuboid">長方體導引</option></select><button class="guide-select" id="quickClearBtn" style="background:#fff1f2;color:#c81e1e;border-color:#fecdd3;">立即清空</button><button class="icon-btn" id="resetViewBtn" title="重設視角">↻</button></div></div>
   <div class="hint" id="hint">拖動頂點或稜；綠色位置代表放手後會自動連接</div>
   <div class="toast" id="toast"></div>
   <div class="selection" id="selection"><span class="selection-name" id="selectionName">已選取</span><button id="moveUpBtn">↑ 一層</button><button id="moveDownBtn">↓ 一層</button><button class="delete" id="deleteBtn">刪除</button></div>
@@ -35,5 +35,10 @@
 
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.161.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.161.0/examples/jsm/"}}</script>
 <script type="module" src="app.js?v=3"></script>
+<script>
+document.getElementById('quickClearBtn').addEventListener('click',function(){
+  if(window.confirm('確定要立即清空所有頂點和稜嗎？')) window.location.reload();
+});
+</script>
 </body>
 </html>
