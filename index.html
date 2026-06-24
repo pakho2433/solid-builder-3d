@@ -3,42 +3,569 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#f4f7fb" />
+  <meta name="theme-color" content="#eff6ff" />
   <title>立體圖形建構室｜頂點與稜</title>
   <style>
-    :root{--bg:#eef3f9;--panel:#fff;--ink:#172033;--muted:#667085;--primary:#2563eb;--primary2:#1d4ed8;--danger:#dc2626;--line:#dbe3ee;--soft:#f7f9fc}
-    *{box-sizing:border-box}html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang HK","Noto Sans TC",Arial,sans-serif;color:var(--ink);background:var(--bg);overflow:hidden}button,select{font:inherit}.app{height:100%;display:grid;grid-template-columns:320px 1fr}.sidebar{background:var(--panel);border-right:1px solid var(--line);padding:18px;overflow:auto;z-index:5}h1{font-size:22px;margin:0 0 5px}.subtitle{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.45}.section{padding:14px 0;border-top:1px solid var(--line)}.section:first-of-type{border-top:none;padding-top:0}.section-title{font-size:14px;font-weight:800;margin-bottom:10px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}button,select{width:100%;min-height:42px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 10px;font-weight:700;cursor:pointer}button:hover{border-color:#9fb5d3;background:#f8fbff}button.primary{background:var(--primary);border-color:var(--primary);color:#fff}button.primary:hover{background:var(--primary2)}button.danger{color:var(--danger)}button.active{background:#dbeafe;border-color:#60a5fa;color:#1d4ed8}.status{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:11px;font-size:13px;line-height:1.5}.count-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.count{background:#fff;border:1px solid var(--line);border-radius:10px;text-align:center;padding:9px}.count b{font-size:22px;display:block}.hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}.viewer{position:relative;min-width:0}#canvasWrap{position:absolute;inset:0}#canvasWrap canvas{display:block;width:100%;height:100%;touch-action:none}.topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;justify-content:space-between;pointer-events:none}.badge{pointer-events:auto;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border:1px solid var(--line);box-shadow:0 6px 24px rgba(30,41,59,.08);border-radius:999px;padding:9px 13px;font-size:13px;font-weight:800}.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#172033;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.2s;pointer-events:none;font-size:13px;z-index:8}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.mobile-toggle{display:none}.selected-list{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px}@media(max-width:820px){.app{grid-template-columns:1fr}.sidebar{position:absolute;left:0;top:0;bottom:0;width:min(88vw,340px);transform:translateX(-102%);transition:.25s;box-shadow:10px 0 30px rgba(15,23,42,.16)}.sidebar.open{transform:translateX(0)}.mobile-toggle{display:block;position:absolute;right:12px;bottom:14px;z-index:10;width:auto;padding:11px 15px;background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 8px 25px rgba(37,99,235,.3)}.topbar{right:74px}}
+    :root{
+      --ink:#172033;--muted:#667085;--line:#d8e2ef;--panel:rgba(255,255,255,.94);
+      --blue:#2563eb;--blue2:#1d4ed8;--yellow:#f59e0b;--red:#dc2626;--bg:#eef5fc;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang HK","Noto Sans TC",Arial,sans-serif}
+    button{font:inherit;color:inherit}
+    .app{height:100%;position:relative;display:flex;flex-direction:column}
+    header{height:66px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);z-index:20}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}.brand-mark{width:42px;height:42px;border-radius:13px;background:#dbeafe;display:grid;place-items:center}.brand h1{font-size:19px;margin:0;white-space:nowrap}.brand p{font-size:11px;color:var(--muted);margin:2px 0 0;white-space:nowrap}
+    .icon-btn{width:44px;height:44px;border:1px solid var(--line);border-radius:13px;background:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.07)}
+    .workspace{position:relative;flex:1;min-height:0}.canvas-wrap{position:absolute;inset:0}.canvas-wrap canvas{display:block;width:100%;height:100%;touch-action:none}
+    .parts-panel{position:absolute;top:14px;left:14px;z-index:10;width:min(340px,calc(100% - 28px));background:var(--panel);backdrop-filter:blur(12px);border:1px solid rgba(216,226,239,.95);border-radius:20px;padding:12px;box-shadow:0 12px 35px rgba(30,41,59,.12)}
+    .parts-title{font-size:13px;font-weight:800;margin-bottom:9px;color:#344054}.part-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.part-btn{border:2px solid transparent;border-radius:17px;background:#f8fbff;min-height:92px;display:flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;transition:.15s;box-shadow:inset 0 0 0 1px var(--line)}.part-btn:active{transform:scale(.97)}.part-btn.vertex:hover,.part-btn.vertex:focus-visible{border-color:#60a5fa}.part-btn.edge:hover,.part-btn.edge:focus-visible{border-color:#64748b}.part-art{width:52px;height:52px;display:grid;place-items:center}.vertex-ball{width:35px;height:35px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#93c5fd 0 12%,#3b82f6 38%,#1d4ed8 80%);box-shadow:0 7px 16px rgba(37,99,235,.32)}.edge-stick{width:50px;height:12px;border-radius:999px;background:linear-gradient(#475569,#172033);transform:rotate(-24deg);box-shadow:0 6px 12px rgba(15,23,42,.25);position:relative}.edge-stick:before,.edge-stick:after{content:"";position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#94a3b8;transform:translateY(-50%)}.edge-stick:before{left:-5px}.edge-stick:after{right:-5px}.part-copy b{display:block;font-size:18px}.part-copy span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+    .mini-counts{display:flex;gap:8px;margin-top:10px}.mini-count{flex:1;border:1px solid var(--line);border-radius:12px;padding:7px 10px;background:#fff;font-size:12px;color:var(--muted)}.mini-count b{color:var(--ink);font-size:18px;margin-right:4px}
+    .tip{position:absolute;top:14px;right:14px;z-index:9;background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:999px;padding:9px 13px;font-size:12px;font-weight:750;box-shadow:0 8px 22px rgba(30,41,59,.08);pointer-events:none}
+    .selection-bar{position:absolute;left:50%;bottom:96px;transform:translate(-50%,18px);z-index:15;display:flex;align-items:center;gap:10px;background:#172033;color:#fff;border-radius:17px;padding:9px 10px 9px 14px;box-shadow:0 14px 35px rgba(15,23,42,.28);opacity:0;pointer-events:none;transition:.18s;max-width:calc(100% - 24px)}.selection-bar.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}.selection-bar .selected-name{font-size:13px;font-weight:800;white-space:nowrap}.delete-btn{border:0;border-radius:12px;background:#ef4444;color:#fff;padding:10px 14px;font-weight:850;cursor:pointer}.delete-btn:active{transform:scale(.97)}
+    .bottom-bar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:12;width:min(560px,calc(100% - 24px));display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:9px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:20px;padding:9px;box-shadow:0 12px 35px rgba(30,41,59,.13)}.bottom-bar button{min-height:50px;border:1px solid var(--line);border-radius:14px;background:#fff;font-weight:800;cursor:pointer}.bottom-bar button:active{transform:scale(.98)}.bottom-bar .finish{border-color:var(--blue);background:var(--blue);color:#fff;font-size:16px}.bottom-bar .finish:hover{background:var(--blue2)}
+    .toast{position:absolute;left:50%;top:86px;transform:translate(-50%,-10px);z-index:30;background:#172033;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;box-shadow:0 8px 25px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:translate(-50%,0)}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal-backdrop.show{display:flex}.modal{width:min(520px,100%);max-height:min(760px,90vh);overflow:auto;background:#fff;border-radius:24px;padding:20px;box-shadow:0 24px 70px rgba(15,23,42,.3)}.modal h2{margin:0 0 6px;font-size:24px}.modal .lead{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.55}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.data-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:#f8fbff}.data-card b{display:block;font-size:30px}.data-card span{font-size:13px;color:var(--muted)}.shape-result{margin-top:12px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:16px;padding:14px}.shape-result strong{display:block;font-size:17px;margin-bottom:5px}.shape-result p{font-size:13px;color:#475467;line-height:1.5;margin:0}.degree-list{margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;font-size:13px;line-height:1.65;color:#475467}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.modal-actions button{min-height:48px;border-radius:14px;border:1px solid var(--line);background:#fff;font-weight:800;cursor:pointer}.modal-actions .primary{background:var(--blue);border-color:var(--blue);color:#fff}.help-steps{display:grid;gap:10px;margin:14px 0}.help-step{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:16px;padding:12px}.step-no{width:30px;height:30px;border-radius:50%;background:#dbeafe;color:#1d4ed8;display:grid;place-items:center;font-weight:900;flex:none}.help-step b{display:block;margin-bottom:3px}.help-step p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    @media(max-width:760px){header{height:60px}.brand p{display:none}.brand h1{font-size:17px}.brand-mark{width:38px;height:38px}.parts-panel{top:10px;left:10px;width:calc(100% - 20px);padding:10px;border-radius:17px}.parts-title{display:none}.part-btn{min-height:72px;border-radius:14px}.part-art{width:42px;height:42px}.vertex-ball{width:30px;height:30px}.edge-stick{width:42px}.part-copy b{font-size:16px}.part-copy span{font-size:10px}.mini-counts{margin-top:8px}.tip{display:none}.selection-bar{bottom:88px}.bottom-bar{bottom:10px}.toast{top:75px}}
+    @media(max-width:390px){.part-btn{gap:7px}.part-copy b{font-size:15px}.part-copy span{display:none}.bottom-bar{grid-template-columns:.9fr .9fr 1.25fr}.bottom-bar button{font-size:13px}}
   </style>
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar" id="sidebar">
-    <h1>立體圖形建構室</h1><div class="subtitle">用「頂點」和「稜」自由組成立體圖形。支援電腦、iPad 及手機。</div>
-    <div class="section"><div class="section-title">1. 選擇操作模式</div><div class="grid2"><button id="modeOrbit" class="active">旋轉觀察</button><button id="modeMove">移動頂點</button><button id="modeEdge">連接稜</button><button id="modeDelete">刪除物件</button></div><div class="hint" id="modeHint">拖動畫面旋轉；雙指或滑鼠滾輪縮放。</div></div>
-    <div class="section"><div class="section-title">2. 建立與修改</div><div class="grid2"><button id="addVertex" class="primary">＋ 新增頂點</button><button id="addEdge">＋ 連接稜</button><button id="removeLastVertex" class="danger">－ 最後頂點</button><button id="removeLastEdge" class="danger">－ 最後一條稜</button></div><button id="clearAll" class="danger" style="margin-top:8px">清除全部</button><div class="selected-list" id="selectedInfo">尚未選取頂點</div></div>
-    <div class="section"><div class="section-title">3. 預設立體圖形</div><select id="preset"><option value="">選擇圖形……</option><option value="cube">正方體</option><option value="cuboid">長方體</option><option value="tetra">四面體／三角錐</option><option value="squarePyramid">四角錐</option><option value="triPrism">三角柱</option><option value="octa">八面體</option></select><button id="loadPreset" style="margin-top:8px">載入預設圖形</button></div>
-    <div class="section"><div class="section-title">模型資料</div><div class="status"><div class="count-row"><div class="count"><b id="vertexCount">0</b>頂點</div><div class="count"><b id="edgeCount">0</b>稜</div></div><div id="shapeMessage" style="margin-top:9px">建立你的第一個立體圖形吧！</div></div></div>
-    <div class="section"><div class="section-title">顯示設定</div><div class="grid2"><button id="toggleLabels" class="active">顯示編號</button><button id="toggleGrid" class="active">顯示網格</button><button id="resetView">重設視角</button><button id="centerModel">模型置中</button></div></div>
-    <div class="section"><div class="hint">教學建議：先載入正方體，請學生逐一刪除稜或頂點，再嘗試重建；亦可比較不同立體圖形的頂點和稜數量。</div></div>
-  </aside>
-  <main class="viewer"><div id="canvasWrap"></div><div class="topbar"><div class="badge" id="modeBadge">模式：旋轉觀察</div><div class="badge">拖動旋轉・點選頂點・自由建構</div></div><div class="toast" id="toast"></div><button class="mobile-toggle" id="mobileToggle">工具</button></main>
+  <header>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="8" cy="8" r="4.2" fill="#2563eb"/><circle cx="22" cy="7" r="4.2" fill="#2563eb"/><circle cx="15" cy="22" r="4.2" fill="#2563eb"/><path d="M10.9 9.8 19 8.2M9.7 11.5l3.8 7M20.2 10.6l-3.1 7.4" stroke="#172033" stroke-width="2.3" stroke-linecap="round"/></svg>
+      </div>
+      <div><h1>立體圖形建構室</h1><p>加入頂點和稜，自由組裝你的立體圖形</p></div>
+    </div>
+    <button class="icon-btn" id="helpBtn" aria-label="使用說明" title="使用說明">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9.8 9a2.35 2.35 0 1 1 3.7 1.92c-.9.64-1.5 1.15-1.5 2.08" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <main class="workspace">
+    <div class="canvas-wrap" id="canvasWrap"></div>
+
+    <section class="parts-panel" aria-label="加入零件">
+      <div class="parts-title">撳一下，加入零件</div>
+      <div class="part-row">
+        <button class="part-btn vertex" id="addVertexBtn">
+          <span class="part-art"><span class="vertex-ball"></span></span>
+          <span class="part-copy"><b>＋ 頂點</b><span>加入一粒頂點</span></span>
+        </button>
+        <button class="part-btn edge" id="addEdgeBtn">
+          <span class="part-art"><span class="edge-stick"></span></span>
+          <span class="part-copy"><b>＋ 稜</b><span>加入一條可轉向的稜</span></span>
+        </button>
+      </div>
+      <div class="mini-counts">
+        <div class="mini-count"><b id="vertexCount">0</b>頂點</div>
+        <div class="mini-count"><b id="edgeCount">0</b>稜</div>
+      </div>
+    </section>
+
+    <div class="tip">拖動零件移動・拖動空白位置旋轉</div>
+
+    <div class="selection-bar" id="selectionBar">
+      <span class="selected-name" id="selectedName">已選取</span>
+      <button class="delete-btn" id="deleteBtn">刪除</button>
+    </div>
+
+    <div class="bottom-bar">
+      <button id="resetViewBtn">重設視角</button>
+      <button id="clearBtn">清空</button>
+      <button class="finish" id="finishBtn">完成並看數據</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </main>
 </div>
+
+<div class="modal-backdrop" id="dataModal">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="dataTitle">
+    <h2 id="dataTitle">模型數據</h2>
+    <p class="lead">這是你剛才組裝的立體圖形資料。</p>
+    <div class="data-grid">
+      <div class="data-card"><b id="resultVertices">0</b><span>頂點總數</span></div>
+      <div class="data-card"><b id="resultEdges">0</b><span>稜總數</span></div>
+      <div class="data-card"><b id="resultConnected">0</b><span>已完整連接的稜</span></div>
+      <div class="data-card"><b id="resultLoose">0</b><span>未接上頂點的端點</span></div>
+    </div>
+    <div class="shape-result"><strong id="shapeName">繼續組裝吧！</strong><p id="shapeMessage">加入頂點和稜後，系統會分析你的模型。</p></div>
+    <div class="degree-list" id="degreeList">每個頂點連接的稜數會顯示在這裡。</div>
+    <div class="modal-actions"><button id="continueBtn">繼續修改</button><button class="primary" id="restartBtn">重新開始</button></div>
+  </section>
+</div>
+
+<div class="modal-backdrop" id="helpModal">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">怎樣玩？</h2>
+    <p class="lead">只需三步，就可以自由組成立體圖形。</p>
+    <div class="help-steps">
+      <div class="help-step"><div class="step-no">1</div><div><b>加入零件</b><p>撳「頂點」或「稜」，零件便會出現在圖格中。</p></div></div>
+      <div class="help-step"><div class="step-no">2</div><div><b>移動和連接</b><p>拖動頂點或整條稜來移動。選取稜後，可拖動兩端的小圓點來改變方向；靠近頂點時會自動接上。</p></div></div>
+      <div class="help-step"><div class="step-no">3</div><div><b>選取和刪除</b><p>撳一下頂點或稜，它會亮起；再按下方「刪除」即可移除。完成後按「完成並看數據」。</p></div></div>
+    </div>
+    <div class="modal-actions" style="grid-template-columns:1fr"><button class="primary" id="closeHelpBtn">開始組裝</button></div>
+  </section>
+</div>
+
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.161.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.161.0/examples/jsm/"}}</script>
 <script type="module">
-import * as THREE from 'three';
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {TransformControls} from 'three/addons/controls/TransformControls.js';
-const wrap=document.getElementById('canvasWrap'),scene=new THREE.Scene();scene.background=new THREE.Color(0xeef3f9);const camera=new THREE.PerspectiveCamera(45,1,.1,1000);camera.position.set(7,6,8);const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;wrap.appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0xffffff,0x64748b,2));const sun=new THREE.DirectionalLight(0xffffff,2.2);sun.position.set(6,10,7);sun.castShadow=true;scene.add(sun);const grid=new THREE.GridHelper(20,20,0x8fa6c2,0xcbd5e1);grid.position.y=-2.5;scene.add(grid);const orbit=new OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.dampingFactor=.08;const transform=new TransformControls(camera,renderer.domElement);transform.setMode('translate');transform.setSize(.75);transform.addEventListener('dragging-changed',e=>orbit.enabled=!e.value);transform.addEventListener('objectChange',()=>{updateEdges();updateLabels()});scene.add(transform);const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),vertices=[],edges=[],labels=[];let mode='orbit',selected=[],labelsVisible=true;const vertexGeo=new THREE.SphereGeometry(.18,24,16),vertexMat=new THREE.MeshStandardMaterial({color:0x2563eb,roughness:.35}),selectedMat=new THREE.MeshStandardMaterial({color:0xf59e0b}),edgeMat=new THREE.MeshStandardMaterial({color:0x172033});
-function makeLabel(text){const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='rgba(255,255,255,.95)';x.beginPath();x.arc(64,64,33,0,Math.PI*2);x.fill();x.strokeStyle='#2563eb';x.lineWidth=5;x.stroke();x.fillStyle='#172033';x.font='bold 42px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,64,66);const t=new THREE.CanvasTexture(c),s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));s.scale.set(.58,.58,.58);return s}
-function addVertex(pos=new THREE.Vector3()){const m=new THREE.Mesh(vertexGeo,vertexMat.clone());m.position.copy(pos);m.userData={type:'vertex',id:vertices.length};scene.add(m);vertices.push(m);const l=makeLabel(String(vertices.length));scene.add(l);labels.push(l);updateLabels();updateUI();return m}
-function edgeExists(a,b){return edges.some(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a))}function addEdge(a,b){if(a===b||edgeExists(a,b))return false;const m=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,1,12),edgeMat.clone());m.userData={type:'edge',edgeIndex:edges.length};scene.add(m);edges.push({a,b,mesh:m});updateEdge(edges.at(-1));updateUI();return true}function updateEdge(e){const A=vertices[e.a].position,B=vertices[e.b].position;e.mesh.position.copy(A.clone().add(B).multiplyScalar(.5));e.mesh.scale.set(1,A.distanceTo(B),1);e.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize())}function updateEdges(){edges.forEach(updateEdge)}function updateLabels(){labels.forEach((l,i)=>{if(vertices[i])l.position.copy(vertices[i].position).add(new THREE.Vector3(0,.38,0));l.visible=labelsVisible})}
-function clearSelection(){selected.forEach(i=>vertices[i]?.material.copy(vertexMat));selected=[];transform.detach();updateSelectedInfo()}function selectVertex(i){if(mode==='edge'){if(!selected.includes(i)){selected.push(i);vertices[i].material.copy(selectedMat)}if(selected.length===2){const ok=addEdge(selected[0],selected[1]);toast(ok?'已連接一條稜':'這兩個頂點已連接');clearSelection()}}else if(mode==='move'){clearSelection();selected=[i];vertices[i].material.copy(selectedMat);transform.attach(vertices[i]);updateSelectedInfo()}}
-function removeEdgeAt(i){const e=edges[i];if(!e)return;scene.remove(e.mesh);edges.splice(i,1);edges.forEach((x,j)=>x.mesh.userData.edgeIndex=j);updateUI()}function rebuildLabels(){labels.forEach(l=>scene.remove(l));labels.length=0;vertices.forEach((v,i)=>{const l=makeLabel(String(i+1));scene.add(l);labels.push(l)});updateLabels()}function removeVertexAt(i){if(!vertices[i])return;transform.detach();for(let j=edges.length-1;j>=0;j--)if(edges[j].a===i||edges[j].b===i)removeEdgeAt(j);edges.forEach(e=>{if(e.a>i)e.a--;if(e.b>i)e.b--});scene.remove(vertices[i]);scene.remove(labels[i]);vertices.splice(i,1);labels.splice(i,1);vertices.forEach((v,j)=>v.userData.id=j);rebuildLabels();clearSelection();updateEdges();updateUI()}function clearAll(){transform.detach();edges.forEach(e=>scene.remove(e.mesh));vertices.forEach(v=>scene.remove(v));labels.forEach(l=>scene.remove(l));edges.length=vertices.length=labels.length=0;selected=[];updateUI()}
-function addVertexSmart(){const i=vertices.length,r=2.1,a=i*2.399963;addVertex(new THREE.Vector3(Math.cos(a)*r,((i%3)-1)*.75,Math.sin(a)*r));toast(`已新增頂點 ${vertices.length}`)}function setMode(m){mode=m;clearSelection();const names={orbit:'旋轉觀察',move:'移動頂點',edge:'連接稜',delete:'刪除物件'};document.getElementById('modeBadge').textContent='模式：'+names[m];document.querySelectorAll('#modeOrbit,#modeMove,#modeEdge,#modeDelete').forEach(b=>b.classList.remove('active'));document.getElementById({orbit:'modeOrbit',move:'modeMove',edge:'modeEdge',delete:'modeDelete'}[m]).classList.add('active');orbit.enabled=m==='orbit';document.getElementById('modeHint').textContent={orbit:'拖動畫面旋轉；雙指或滑鼠滾輪縮放。',move:'點選一個頂點，再拖動彩色箭嘴。',edge:'依次點選兩個頂點，即可連接成一條稜。',delete:'點選頂點或稜即可刪除。'}[m]}
-function onPointer(e){const r=renderer.domElement.getBoundingClientRect();pointer.x=(e.clientX-r.left)/r.width*2-1;pointer.y=-(e.clientY-r.top)/r.height*2+1;raycaster.setFromCamera(pointer,camera);const h=raycaster.intersectObjects([...vertices,...edges.map(e=>e.mesh)],false);if(!h.length)return;const o=h[0].object;if(o.userData.type==='vertex'){if(mode==='delete')removeVertexAt(o.userData.id);else if(mode==='edge'||mode==='move')selectVertex(o.userData.id)}else if(o.userData.type==='edge'&&mode==='delete')removeEdgeAt(o.userData.edgeIndex)}renderer.domElement.addEventListener('pointerdown',e=>{if(mode!=='orbit'&&!transform.dragging)onPointer(e)});
-function updateSelectedInfo(){document.getElementById('selectedInfo').textContent=selected.length?'已選取頂點：'+selected.map(i=>i+1).join('、'):'尚未選取頂點'}function updateUI(){document.getElementById('vertexCount').textContent=vertices.length;document.getElementById('edgeCount').textContent=edges.length;document.getElementById('shapeMessage').textContent=vertices.length?`目前模型共有 ${vertices.length} 個頂點和 ${edges.length} 條稜。`:'建立你的第一個立體圖形吧！';updateSelectedInfo()}function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('show'),1500)}function centerModel(){if(!vertices.length)return;const c=vertices.reduce((s,v)=>s.add(v.position),new THREE.Vector3()).multiplyScalar(1/vertices.length);vertices.forEach(v=>v.position.sub(c));updateEdges();updateLabels();orbit.target.set(0,0,0);toast('模型已置中')}
-function loadPreset(name){clearAll();const P=[],E=[],p=(x,y,z)=>P.push([x,y,z]),e=(a,b)=>E.push([a,b]);if(name==='cube'||name==='cuboid'){const x=name==='cube'?1.6:2.3,y=1.5,z=name==='cube'?1.6:1.1;[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]].forEach(q=>p(...q));[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(q=>e(...q))}else if(name==='tetra'){[[1.8,-1.2,1.2],[-1.8,-1.2,1.2],[0,-1.2,-1.9],[0,1.8,0]].forEach(q=>p(...q));[[0,1],[1,2],[2,0],[0,3],[1,3],[2,3]].forEach(q=>e(...q))}else if(name==='squarePyramid'){[[-1.8,-1.2,-1.8],[1.8,-1.2,-1.8],[1.8,-1.2,1.8],[-1.8,-1.2,1.8],[0,2,0]].forEach(q=>p(...q));[[0,1],[1,2],[2,3],[3,0],[0,4],[1,4],[2,4],[3,4]].forEach(q=>e(...q))}else if(name==='triPrism'){[[-1.8,-1.3,-1.4],[1.8,-1.3,-1.4],[0,1.7,-1.4],[-1.8,-1.3,1.4],[1.8,-1.3,1.4],[0,1.7,1.4]].forEach(q=>p(...q));[[0,1],[1,2],[2,0],[3,4],[4,5],[5,3],[0,3],[1,4],[2,5]].forEach(q=>e(...q))}else if(name==='octa'){[[2,0,0],[-2,0,0],[0,2,0],[0,-2,0],[0,0,2],[0,0,-2]].forEach(q=>p(...q));[[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[4,3],[3,5],[5,2]].forEach(q=>e(...q))}P.forEach(q=>addVertex(new THREE.Vector3(...q)));E.forEach(q=>addEdge(...q));centerModel();setMode('orbit');toast('已載入預設圖形')}
-document.getElementById('modeOrbit').onclick=()=>setMode('orbit');document.getElementById('modeMove').onclick=()=>setMode('move');document.getElementById('modeEdge').onclick=()=>setMode('edge');document.getElementById('modeDelete').onclick=()=>setMode('delete');document.getElementById('addVertex').onclick=addVertexSmart;document.getElementById('addEdge').onclick=()=>{setMode('edge');toast('請依次點選兩個頂點')};document.getElementById('removeLastVertex').onclick=()=>removeVertexAt(vertices.length-1);document.getElementById('removeLastEdge').onclick=()=>removeEdgeAt(edges.length-1);document.getElementById('clearAll').onclick=()=>{if(confirm('確定清除全部頂點和稜？'))clearAll()};document.getElementById('loadPreset').onclick=()=>{const v=document.getElementById('preset').value;if(v)loadPreset(v)};document.getElementById('toggleLabels').onclick=e=>{labelsVisible=!labelsVisible;e.currentTarget.classList.toggle('active',labelsVisible);updateLabels()};document.getElementById('toggleGrid').onclick=e=>{grid.visible=!grid.visible;e.currentTarget.classList.toggle('active',grid.visible)};document.getElementById('resetView').onclick=()=>{camera.position.set(7,6,8);orbit.target.set(0,0,0);orbit.update()};document.getElementById('centerModel').onclick=centerModel;document.getElementById('mobileToggle').onclick=()=>document.getElementById('sidebar').classList.toggle('open');function resize(){const w=wrap.clientWidth,h=wrap.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}window.addEventListener('resize',resize);resize();(function animate(){requestAnimationFrame(animate);orbit.update();renderer.render(scene,camera)})();loadPreset('cube');
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  const wrap = document.getElementById('canvasWrap');
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xeef5fc);
+
+  const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 1000);
+  camera.position.set(7.5, 6.2, 9.5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  wrap.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x7890a8, 2.25));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+  sun.position.set(7, 11, 8);
+  sun.castShadow = true;
+  scene.add(sun);
+
+  const grid = new THREE.GridHelper(22, 22, 0x8fa9c6, 0xcbd9e8);
+  grid.position.y = -2.5;
+  scene.add(grid);
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(22, 22),
+    new THREE.ShadowMaterial({ color: 0x0f172a, opacity: 0.08 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -2.49;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 4;
+  controls.maxDistance = 24;
+  controls.target.set(0, 0, 0);
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  const dragPlane = new THREE.Plane();
+  const dragOffset = new THREE.Vector3();
+  const dragPoint = new THREE.Vector3();
+  const lastDragPoint = new THREE.Vector3();
+
+  const vertexGeo = new THREE.SphereGeometry(0.26, 28, 20);
+  const vertexMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.28, metalness: 0.04, emissive: 0x000000 });
+  const edgeGeo = new THREE.CylinderGeometry(0.075, 0.075, 1, 16);
+  const edgeMat = new THREE.MeshStandardMaterial({ color: 0x253247, roughness: 0.36, emissive: 0x000000 });
+  const handleGeo = new THREE.SphereGeometry(0.17, 22, 16);
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.3, emissive: 0x000000 });
+
+  const vertices = [];
+  const edges = [];
+  let selected = null;
+  let dragState = null;
+  let nextVertexId = 1;
+  let nextEdgeId = 1;
+  let toastTimer;
+
+  const ui = {
+    vertexCount: document.getElementById('vertexCount'),
+    edgeCount: document.getElementById('edgeCount'),
+    selectionBar: document.getElementById('selectionBar'),
+    selectedName: document.getElementById('selectedName'),
+    toast: document.getElementById('toast')
+  };
+
+  function showToast(message) {
+    clearTimeout(toastTimer);
+    ui.toast.textContent = message;
+    ui.toast.classList.add('show');
+    toastTimer = setTimeout(() => ui.toast.classList.remove('show'), 1500);
+  }
+
+  function resize() {
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(h, 1);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function nextSpawn(index, spread = 1.15) {
+    const row = Math.floor(index / 4);
+    const col = index % 4;
+    return new THREE.Vector3((col - 1.5) * spread, 0.7 - row * 0.5, (row % 2) * 0.45 - 0.2);
+  }
+
+  function createVertex(position) {
+    const mesh = new THREE.Mesh(vertexGeo, vertexMat.clone());
+    mesh.position.copy(position || nextSpawn(vertices.length));
+    mesh.castShadow = true;
+    mesh.userData.kind = 'vertex';
+    mesh.userData.vertexId = nextVertexId++;
+    scene.add(mesh);
+    vertices.push(mesh);
+    updateUI();
+    return mesh;
+  }
+
+  function createEdge() {
+    const center = nextSpawn(edges.length, 1.35);
+    const a = center.clone().add(new THREE.Vector3(-0.82, 0, 0));
+    const b = center.clone().add(new THREE.Vector3(0.82, 0, 0));
+    const mesh = new THREE.Mesh(edgeGeo, edgeMat.clone());
+    mesh.castShadow = true;
+    mesh.userData.kind = 'edge';
+    const handleA = new THREE.Mesh(handleGeo, handleMat.clone());
+    const handleB = new THREE.Mesh(handleGeo, handleMat.clone());
+    handleA.userData.kind = 'edgeHandle';
+    handleB.userData.kind = 'edgeHandle';
+    handleA.userData.end = 'a';
+    handleB.userData.end = 'b';
+    handleA.castShadow = handleB.castShadow = true;
+    scene.add(mesh, handleA, handleB);
+    const edge = { id: nextEdgeId++, mesh, handleA, handleB, a, b, attachedA: null, attachedB: null };
+    mesh.userData.edge = edge;
+    handleA.userData.edge = edge;
+    handleB.userData.edge = edge;
+    edges.push(edge);
+    updateEdge(edge);
+    setEdgeHandlesVisible(edge, false);
+    updateUI();
+    return edge;
+  }
+
+  function endpoint(edge, end) {
+    if (end === 'a') return edge.attachedA ? edge.attachedA.position : edge.a;
+    return edge.attachedB ? edge.attachedB.position : edge.b;
+  }
+
+  function updateEdge(edge) {
+    const a = endpoint(edge, 'a');
+    const b = endpoint(edge, 'b');
+    const direction = b.clone().sub(a);
+    const length = Math.max(direction.length(), 0.08);
+    edge.mesh.position.copy(a).add(b).multiplyScalar(0.5);
+    edge.mesh.scale.set(1, length, 1);
+    edge.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+    edge.handleA.position.copy(a);
+    edge.handleB.position.copy(b);
+  }
+
+  function updateAllEdges() {
+    edges.forEach(updateEdge);
+  }
+
+  function setEdgeHandlesVisible(edge, visible) {
+    edge.handleA.visible = visible;
+    edge.handleB.visible = visible;
+  }
+
+  function clearSelection() {
+    if (selected?.type === 'vertex') {
+      selected.vertex.material.emissive.setHex(0x000000);
+      selected.vertex.scale.setScalar(1);
+    }
+    if (selected?.type === 'edge') {
+      selected.edge.mesh.material.emissive.setHex(0x000000);
+      selected.edge.mesh.scale.x = 1;
+      selected.edge.mesh.scale.z = 1;
+      setEdgeHandlesVisible(selected.edge, false);
+    }
+    selected = null;
+    ui.selectionBar.classList.remove('show');
+  }
+
+  function selectVertex(vertex) {
+    clearSelection();
+    selected = { type: 'vertex', vertex };
+    vertex.material.emissive.setHex(0x9a5b00);
+    vertex.scale.setScalar(1.15);
+    ui.selectedName.textContent = `已選取：頂點 ${vertex.userData.vertexId}`;
+    ui.selectionBar.classList.add('show');
+  }
+
+  function selectEdge(edge) {
+    clearSelection();
+    selected = { type: 'edge', edge };
+    edge.mesh.material.emissive.setHex(0x9a5b00);
+    edge.mesh.scale.x = 1.25;
+    edge.mesh.scale.z = 1.25;
+    setEdgeHandlesVisible(edge, true);
+    ui.selectedName.textContent = `已選取：稜 ${edge.id}`;
+    ui.selectionBar.classList.add('show');
+  }
+
+  function removeVertex(vertex) {
+    edges.forEach(edge => {
+      if (edge.attachedA === vertex) { edge.a.copy(vertex.position); edge.attachedA = null; }
+      if (edge.attachedB === vertex) { edge.b.copy(vertex.position); edge.attachedB = null; }
+    });
+    scene.remove(vertex);
+    vertex.geometry = null;
+    const i = vertices.indexOf(vertex);
+    if (i >= 0) vertices.splice(i, 1);
+    clearSelection();
+    updateAllEdges();
+    updateUI();
+    showToast('已刪除頂點');
+  }
+
+  function removeEdge(edge) {
+    scene.remove(edge.mesh, edge.handleA, edge.handleB);
+    const i = edges.indexOf(edge);
+    if (i >= 0) edges.splice(i, 1);
+    clearSelection();
+    updateUI();
+    showToast('已刪除稜');
+  }
+
+  function clearAll() {
+    clearSelection();
+    vertices.forEach(v => scene.remove(v));
+    edges.forEach(e => scene.remove(e.mesh, e.handleA, e.handleB));
+    vertices.length = 0;
+    edges.length = 0;
+    nextVertexId = 1;
+    nextEdgeId = 1;
+    updateUI();
+  }
+
+  function updateUI() {
+    ui.vertexCount.textContent = vertices.length;
+    ui.edgeCount.textContent = edges.length;
+  }
+
+  function setPointer(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+  }
+
+  function hitTest(event) {
+    setPointer(event);
+    const handles = edges.flatMap(e => e.handleA.visible ? [e.handleA, e.handleB] : []);
+    const handleHit = raycaster.intersectObjects(handles, false)[0]?.object;
+    if (handleHit) return handleHit;
+    return raycaster.intersectObjects([...vertices, ...edges.map(e => e.mesh)], false)[0]?.object || null;
+  }
+
+  function beginDrag(event, object) {
+    controls.enabled = false;
+    const normal = camera.getWorldDirection(new THREE.Vector3()).normalize();
+    const anchor = new THREE.Vector3();
+    let type;
+    let target;
+
+    if (object.userData.kind === 'vertex') {
+      type = 'vertex';
+      target = object;
+      anchor.copy(object.position);
+      selectVertex(object);
+    } else if (object.userData.kind === 'edge') {
+      type = 'edge';
+      target = object.userData.edge;
+      anchor.copy(target.mesh.position);
+      selectEdge(target);
+    } else {
+      type = 'handle';
+      target = object.userData.edge;
+      const end = object.userData.end;
+      anchor.copy(endpoint(target, end));
+      if (end === 'a') { target.a.copy(anchor); target.attachedA = null; }
+      else { target.b.copy(anchor); target.attachedB = null; }
+      selectEdge(target);
+      dragState = { type, target, end, moved: false, startX: event.clientX, startY: event.clientY };
+    }
+
+    dragPlane.setFromNormalAndCoplanarPoint(normal, anchor);
+    setPointer(event);
+    raycaster.ray.intersectPlane(dragPlane, dragPoint);
+    dragOffset.copy(anchor).sub(dragPoint);
+    lastDragPoint.copy(anchor);
+    if (!dragState) dragState = { type, target, moved: false, startX: event.clientX, startY: event.clientY };
+    renderer.domElement.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveDrag(event) {
+    if (!dragState) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    if (Math.hypot(dx, dy) > 3) dragState.moved = true;
+    setPointer(event);
+    if (!raycaster.ray.intersectPlane(dragPlane, dragPoint)) return;
+    dragPoint.add(dragOffset);
+
+    if (dragState.type === 'vertex') {
+      dragState.target.position.copy(dragPoint);
+      updateAllEdges();
+    } else if (dragState.type === 'edge') {
+      const delta = dragPoint.clone().sub(lastDragPoint);
+      const edge = dragState.target;
+      if (!edge.attachedA) edge.a.add(delta);
+      if (!edge.attachedB) edge.b.add(delta);
+      if (edge.attachedA && edge.attachedB) {
+        edge.a.copy(endpoint(edge, 'a')).add(delta); edge.attachedA = null;
+        edge.b.copy(endpoint(edge, 'b')).add(delta); edge.attachedB = null;
+      } else if (edge.attachedA) {
+        edge.a.copy(endpoint(edge, 'a')).add(delta); edge.attachedA = null;
+      } else if (edge.attachedB) {
+        edge.b.copy(endpoint(edge, 'b')).add(delta); edge.attachedB = null;
+      }
+      lastDragPoint.copy(dragPoint);
+      updateEdge(edge);
+    } else {
+      const edge = dragState.target;
+      if (dragState.end === 'a') edge.a.copy(dragPoint);
+      else edge.b.copy(dragPoint);
+      updateEdge(edge);
+    }
+  }
+
+  function snapEndpoint(edge, end) {
+    const p = end === 'a' ? edge.a : edge.b;
+    let nearest = null;
+    let distance = 0.55;
+    for (const vertex of vertices) {
+      const d = vertex.position.distanceTo(p);
+      if (d < distance) { distance = d; nearest = vertex; }
+    }
+    if (!nearest) return false;
+    if (end === 'a') edge.attachedA = nearest;
+    else edge.attachedB = nearest;
+    updateEdge(edge);
+    return true;
+  }
+
+  function endDrag(event) {
+    if (!dragState) return;
+    let snapped = false;
+    if (dragState.type === 'handle') snapped = snapEndpoint(dragState.target, dragState.end);
+    if (snapped) showToast('稜已接上頂點');
+    dragState = null;
+    controls.enabled = true;
+    try { renderer.domElement.releasePointerCapture?.(event.pointerId); } catch (_) {}
+  }
+
+  renderer.domElement.addEventListener('pointerdown', event => {
+    const object = hitTest(event);
+    if (object) {
+      event.preventDefault();
+      beginDrag(event, object);
+    } else {
+      clearSelection();
+    }
+  });
+  renderer.domElement.addEventListener('pointermove', moveDrag);
+  renderer.domElement.addEventListener('pointerup', endDrag);
+  renderer.domElement.addEventListener('pointercancel', endDrag);
+
+  function resetView() {
+    camera.position.set(7.5, 6.2, 9.5);
+    controls.target.set(0, 0, 0);
+    controls.update();
+    showToast('已重設視角');
+  }
+
+  function analyseModel() {
+    const connectedEdges = edges.filter(e => e.attachedA && e.attachedB);
+    const looseEnds = edges.reduce((n, e) => n + (e.attachedA ? 0 : 1) + (e.attachedB ? 0 : 1), 0);
+    const degree = new Map(vertices.map(v => [v, 0]));
+    connectedEdges.forEach(e => {
+      degree.set(e.attachedA, (degree.get(e.attachedA) || 0) + 1);
+      degree.set(e.attachedB, (degree.get(e.attachedB) || 0) + 1);
+    });
+    const degreeValues = vertices.map(v => degree.get(v) || 0).sort((a, b) => a - b);
+
+    let name = '自由創作模型';
+    let message = '你的頂點和稜組成了一個獨特模型。可以繼續轉動觀察，或再調整零件。';
+    const v = vertices.length;
+    const e = connectedEdges.length;
+    const allConnected = looseEnds === 0 && edges.length > 0;
+    const same = n => degreeValues.length === v && degreeValues.every(x => x === n);
+
+    if (!v && !edges.length) {
+      name = '模型仍是空白'; message = '先加入頂點和稜，再按完成查看資料。';
+    } else if (!allConnected) {
+      name = '尚有零件未接好'; message = `仍有 ${looseEnds} 個稜端未接上頂點。拖動稜兩端的小圓點靠近頂點即可自動接上。`;
+    } else if (v === 4 && e === 6 && same(3)) {
+      name = '可能是四面體（三角錐）'; message = '四面體有 4 個頂點、6 條稜，每個頂點都連接 3 條稜。';
+    } else if (v === 5 && e === 8 && degreeValues.join(',') === '3,3,3,3,4') {
+      name = '可能是四角錐'; message = '四角錐有 5 個頂點和 8 條稜，頂端連接底面的四個頂點。';
+    } else if (v === 6 && e === 9 && same(3)) {
+      name = '可能是三角柱'; message = '三角柱有 6 個頂點和 9 條稜，每個頂點都連接 3 條稜。';
+    } else if (v === 6 && e === 12 && same(4)) {
+      name = '可能是八面體'; message = '八面體有 6 個頂點和 12 條稜，每個頂點都連接 4 條稜。';
+    } else if (v === 8 && e === 12 && same(3)) {
+      name = '可能是正方體或長方體'; message = '正方體和長方體都有 8 個頂點和 12 條稜，每個頂點都連接 3 條稜。';
+    }
+
+    return { connectedEdges: connectedEdges.length, looseEnds, degree, name, message };
+  }
+
+  function showData() {
+    const result = analyseModel();
+    document.getElementById('resultVertices').textContent = vertices.length;
+    document.getElementById('resultEdges').textContent = edges.length;
+    document.getElementById('resultConnected').textContent = result.connectedEdges;
+    document.getElementById('resultLoose').textContent = result.looseEnds;
+    document.getElementById('shapeName').textContent = result.name;
+    document.getElementById('shapeMessage').textContent = result.message;
+    document.getElementById('degreeList').innerHTML = vertices.length
+      ? '<b>每個頂點連接的稜：</b><br>' + vertices.map(v => `頂點 ${v.userData.vertexId}：${result.degree.get(v) || 0} 條`).join('　 ')
+      : '每個頂點連接的稜數會顯示在這裡。';
+    document.getElementById('dataModal').classList.add('show');
+  }
+
+  document.getElementById('addVertexBtn').addEventListener('click', () => {
+    const vertex = createVertex();
+    selectVertex(vertex);
+    showToast('已加入一個頂點');
+  });
+  document.getElementById('addEdgeBtn').addEventListener('click', () => {
+    const edge = createEdge();
+    selectEdge(edge);
+    showToast('已加入一條稜，拖動兩端來轉向');
+  });
+  document.getElementById('deleteBtn').addEventListener('click', () => {
+    if (selected?.type === 'vertex') removeVertex(selected.vertex);
+    else if (selected?.type === 'edge') removeEdge(selected.edge);
+  });
+  document.getElementById('resetViewBtn').addEventListener('click', resetView);
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!vertices.length && !edges.length) return showToast('圖格已經是空白');
+    if (window.confirm('確定要清空所有頂點和稜嗎？')) { clearAll(); showToast('已清空圖格'); }
+  });
+  document.getElementById('finishBtn').addEventListener('click', showData);
+  document.getElementById('continueBtn').addEventListener('click', () => document.getElementById('dataModal').classList.remove('show'));
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('dataModal').classList.remove('show');
+    clearAll();
+    resetView();
+  });
+  document.getElementById('helpBtn').addEventListener('click', () => document.getElementById('helpModal').classList.add('show'));
+  document.getElementById('closeHelpBtn').addEventListener('click', () => document.getElementById('helpModal').classList.remove('show'));
+  document.getElementById('dataModal').addEventListener('click', e => { if (e.target.id === 'dataModal') e.currentTarget.classList.remove('show'); });
+  document.getElementById('helpModal').addEventListener('click', e => { if (e.target.id === 'helpModal') e.currentTarget.classList.remove('show'); });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
 </script>
 </body>
 </html>
