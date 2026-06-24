@@ -1210,16 +1210,11 @@ updateUI();
 
 function normalizePrismName() {
   document.querySelectorAll('#shapeName, #shapeMessage, #detail').forEach((element) => {
-    element.textContent = element.textContent.replaceAll('四角柱體', '四角柱');
-  });
-}
-
-const resultArea = document.getElementById('dataModal');
-if (resultArea) {
-  new MutationObserver(normalizePrismName).observe(resultArea, {
-    childList: true,
-    subtree: true,
-    characterData: true
+    const currentText = element.textContent;
+    const correctedText = currentText.replaceAll('四角柱體', '四角柱');
+    if (correctedText !== currentText) {
+      element.textContent = correctedText;
+    }
   });
 }
 
