@@ -7,6 +7,7 @@
 <title>立體圖形建構室｜頂點、稜與曲面立體</title>
 <link rel="stylesheet" href="style.css?v=7">
 <link rel="stylesheet" href="ipad.css?v=1">
+<link rel="stylesheet" href="interaction.css?v=1">
 </head>
 <body>
 <div class="app">
@@ -60,19 +61,19 @@
 
     <div class="tool-scroll" id="toolScroll">
       <div class="tool-card" data-tool="vertex">
-        <span class="vertex-icon"></span><span class="tool-copy">拖出頂點<small>靠近位置會吸附</small></span>
+        <span class="vertex-icon"></span><span class="tool-copy">放置頂點<small>點選後撳畫布</small></span>
       </div>
       <div class="tool-card" data-tool="edge">
-        <span class="edge-icon"></span><span class="tool-copy">拖出直稜<small>水平、前後、垂直</small></span>
+        <span class="edge-icon"></span><span class="tool-copy">畫直稜<small>由第一點拖到第二點</small></span>
       </div>
       <div class="tool-card pyramid-tool" data-tool="free-edge">
-        <span class="slanted-edge-icon"></span><span class="tool-copy">拖出斜稜<small>組裝三角錐、四角錐</small></span>
+        <span class="slanted-edge-icon"></span><span class="tool-copy">畫斜稜<small>組裝三角錐、四角錐</small></span>
       </div>
       <div class="tool-card" data-tool="sphere">
-        <span class="sphere-icon"></span><span class="tool-copy">拖出球體<small>完整曲面立體</small></span>
+        <span class="sphere-icon"></span><span class="tool-copy">放置球體<small>點選後撳畫布</small></span>
       </div>
       <div class="tool-card" data-tool="cone">
-        <span class="cone-icon"></span><span class="tool-copy">拖出圓錐<small>完整曲面立體</small></span>
+        <span class="cone-icon"></span><span class="tool-copy">放置圓錐<small>完整曲面立體</small></span>
       </div>
       <div class="layer-box">
         <div class="layer-title">放置樓層</div>
@@ -107,19 +108,19 @@
 
 <div class="modal-bg" id="helpModal">
   <section class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-    <h2 id="helpTitle">怎樣組裝？</h2>
-    <p class="lead">圓錐是完整曲面立體；三角錐和四角錐要用頂點與稜親自組裝。</p>
+    <h2 id="helpTitle">怎樣組裝錐體？</h2>
+    <p class="lead">圓錐是完整曲面立體；三角錐和四角錐要由頂點與稜親自組裝。</p>
     <div class="help-list">
-      <div class="help-item"><div class="help-no">1</div><div><b>展開或收起工具</b><p>撳畫面底部箭嘴展開工具；完成選擇後可再次收起，iPad會有更大畫布。</p></div></div>
-      <div class="help-item"><div class="help-no">2</div><div><b>直稜與斜稜</b><p>正方體、長方體用直稜；三角錐、四角錐由頂點連向尖頂時使用斜稜。</p></div></div>
-      <div class="help-item"><div class="help-no">3</div><div><b>組裝錐體</b><p>先選三角錐或四角錐導引，放置底面頂點和上層尖頂，再把斜稜拖近兩個頂點，綠色亮起後放手。</p></div></div>
-      <div class="help-item"><div class="help-no">4</div><div><b>曲面立體</b><p>球體和圓錐可直接拖入畫布；它們與用頂點、稜組裝的稜錐不同。</p></div></div>
+      <div class="help-item"><div class="help-no">1</div><div><b>選擇錐體導引</b><p>在右上角選三角錐或四角錐。淡紫色圓點現在是真正吸附位置。</p></div></div>
+      <div class="help-item"><div class="help-no">2</div><div><b>放置全部頂點</b><p>直接撳每個淡紫色圓點，系統會逐一放置藍色頂點。毋須自行調校樓層。</p></div></div>
+      <div class="help-item"><div class="help-no">3</div><div><b>由點拖到點畫斜稜</b><p>全部頂點完成後，系統自動切換斜稜工具。由第一個藍點按住，拖到第二個藍點；目標亮綠色後放手。</p></div></div>
+      <div class="help-item"><div class="help-no">4</div><div><b>完成後顯示面</b><p>三角錐完成6條稜、四角錐完成8條稜後，系統會自動顯示半透明三角形面。</p></div></div>
     </div>
     <div class="modal-actions one-column"><button class="primary" id="closeHelpBtn">開始組裝</button></div>
   </section>
 </div>
 
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.161.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.161.0/examples/jsm/"}}</script>
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>
