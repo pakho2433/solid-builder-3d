@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const STEP = 2;
 const BASE_Y = -2;
 const MAX_LAYER = 4;
-const SNAP_PX = 72;
+const SNAP_PX = 76;
 
 const DIRECTIONS = [
   new THREE.Vector3(STEP, 0, 0),
@@ -29,7 +29,6 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 wrap.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x72879c, 2.25));
-
 const sun = new THREE.DirectionalLight(0xffffff, 2.05);
 sun.position.set(8, 13, 9);
 sun.castShadow = true;
@@ -91,6 +90,10 @@ const ui = {
   ghostText: document.getElementById('ghostText'),
   layerValue: document.getElementById('layerValue'),
   hint: document.getElementById('hint'),
+  toolbox: document.getElementById('toolbox'),
+  toolToggle: document.getElementById('toolToggle'),
+  toolToggleText: document.getElementById('toolToggleText'),
+  guideSelect: document.getElementById('guideSelect'),
 };
 
 const snapGroup = new THREE.Group();
@@ -115,7 +118,7 @@ const snapEdge = new THREE.Mesh(
   new THREE.MeshBasicMaterial({
     color: 0x18b36e,
     transparent: true,
-    opacity: 0.68,
+    opacity: 0.72,
     depthWrite: false,
   }),
 );
@@ -142,9 +145,9 @@ function makeVertexMaterial() {
   });
 }
 
-function makeEdgeMaterial() {
+function makeEdgeMaterial(mode) {
   return new THREE.MeshStandardMaterial({
-    color: 0x1f2937,
+    color: mode === 'free' ? 0x6d28d9 : 0x1f2937,
     roughness: 0.33,
     emissive: 0x000000,
   });
@@ -165,7 +168,7 @@ function showToast(text) {
   clearTimeout(toastTimer);
   ui.toast.textContent = text;
   ui.toast.classList.add('show');
-  toastTimer = setTimeout(() => ui.toast.classList.remove('show'), 1700);
+  toastTimer = setTimeout(() => ui.toast.classList.remove('show'), 1800);
 }
 
 function setHint(text, isSnap = false) {
@@ -173,6 +176,18 @@ function setHint(text, isSnap = false) {
   ui.hint.classList.toggle('snap', isSnap);
   ui.ghost.classList.toggle('snap', isSnap);
 }
+
+function setToolsOpen(open) {
+  ui.toolbox.classList.toggle('collapsed', !open);
+  document.body.classList.toggle('tools-open', open);
+  ui.toolToggle.setAttribute('aria-expanded', String(open));
+  ui.toolToggleText.textContent = open ? '收起零件工具' : '展開零件工具';
+}
+
+ui.toolToggle.addEventListener('click', () => {
+  setToolsOpen(ui.toolbox.classList.contains('collapsed'));
+});
+setToolsOpen(false);
 
 function setPointer(clientX, clientY) {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -195,6 +210,19 @@ function screenDistance(position, x, y) {
   return Math.hypot(point.x - x, point.y - y);
 }
 
+function distanceToScreenSegment(a, b, x, y) {
+  const start = worldToScreen(a);
+  const end = worldToScreen(b);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (!lengthSquared) return Math.hypot(x - start.x, y - start.y);
+  const t = Math.max(0, Math.min(1, ((x - start.x) * dx + (y - start.y) * dy) / lengthSquared));
+  const px = start.x + t * dx;
+  const py = start.y + t * dy;
+  return Math.hypot(x - px, y - py);
+}
+
 function layerY(layer = currentLayer) {
   return BASE_Y + layer * STEP;
 }
@@ -203,7 +231,6 @@ function pointOnLayer(clientX, clientY, layer = currentLayer) {
   setPointer(clientX, clientY);
   workPlane.set(new THREE.Vector3(0, 1, 0), -layerY(layer));
   if (!raycaster.ray.intersectPlane(workPlane, workPoint)) return null;
-
   return new THREE.Vector3(
     Math.round(workPoint.x / STEP) * STEP,
     layerY(layer),
@@ -243,9 +270,7 @@ function isAxisAligned(a, b) {
 
 function edgeExists(a, b, except = null) {
   return edges.some(
-    (edge) =>
-      edge !== except &&
-      ((edge.a === a && edge.b === b) || (edge.a === b && edge.b === a)),
+    (edge) => edge !== except && ((edge.a === a && edge.b === b) || (edge.a === b && edge.b === a)),
   );
 }
 
@@ -256,14 +281,13 @@ function connectedEdges(vertex) {
 function updateUI() {
   ui.vertexCount.textContent = vertices.length;
   ui.edgeCount.textContent = edges.length;
-  if (ui.solidCount) ui.solidCount.textContent = solids.length;
+  ui.solidCount.textContent = solids.length;
   ui.layerValue.textContent = currentLayer + 1;
 }
 
 function createVertex(position) {
   const existing = findVertexAt(position);
   if (existing) return existing;
-
   const mesh = new THREE.Mesh(vertexGeometry, makeVertexMaterial());
   mesh.position.copy(position);
   mesh.castShadow = true;
@@ -279,27 +303,19 @@ function updateEdge(edge) {
   const end = edge.b.position;
   const direction = end.clone().sub(start);
   const length = Math.max(direction.length(), 0.01);
-
   edge.mesh.position.copy(start).add(end).multiplyScalar(0.5);
   edge.mesh.scale.set(1, length, 1);
-  edge.mesh.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    direction.normalize(),
-  );
+  edge.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
 }
 
-function createEdge(a, b) {
-  if (!a || !b || a === b || !isAxisAligned(a.position, b.position) || edgeExists(a, b)) {
-    return null;
-  }
-
-  const mesh = new THREE.Mesh(edgeGeometry, makeEdgeMaterial());
+function createEdge(a, b, mode = 'straight') {
+  if (!a || !b || a === b || edgeExists(a, b)) return null;
+  if (mode === 'straight' && !isAxisAligned(a.position, b.position)) return null;
+  const mesh = new THREE.Mesh(edgeGeometry, makeEdgeMaterial(mode));
   mesh.castShadow = true;
   mesh.userData = { kind: 'edge' };
-
-  const edge = { id: nextEdgeId++, a, b, mesh };
+  const edge = { id: nextEdgeId++, a, b, mode, mesh };
   mesh.userData.edge = edge;
-
   scene.add(mesh);
   edges.push(edge);
   updateEdge(edge);
@@ -308,30 +324,22 @@ function createEdge(a, b) {
 }
 
 function createSolid(type, basePosition) {
-  const isSphere = type === 'sphere';
-  const halfHeight = isSphere ? 0.78 : 0.8;
-  const geometry = isSphere
+  const sphere = type === 'sphere';
+  const halfHeight = sphere ? 0.78 : 0.8;
+  const geometry = sphere
     ? new THREE.SphereGeometry(0.78, 36, 24)
     : new THREE.ConeGeometry(0.78, 1.6, 36, 1, false);
-
   const material = new THREE.MeshStandardMaterial({
-    color: isSphere ? 0x9333ea : 0xf97316,
+    color: sphere ? 0x9333ea : 0xf97316,
     roughness: 0.3,
     metalness: 0.03,
     emissive: 0x000000,
   });
-
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(basePosition.x, basePosition.y + halfHeight, basePosition.z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  mesh.userData = {
-    kind: 'solid',
-    solidType: type,
-    id: nextSolidId++,
-    halfHeight,
-  };
-
+  mesh.userData = { kind: 'solid', solidType: type, id: nextSolidId++, halfHeight };
   scene.add(mesh);
   solids.push(mesh);
   updateUI();
@@ -345,19 +353,15 @@ function removeEdge(edge) {
 }
 
 function removeDuplicateEdges() {
-  for (let index = edges.length - 1; index >= 0; index -= 1) {
-    const edge = edges[index];
+  for (let i = edges.length - 1; i >= 0; i -= 1) {
+    const edge = edges[i];
     if (edge.a === edge.b) {
       removeEdge(edge);
       continue;
     }
-
-    for (let earlier = 0; earlier < index; earlier += 1) {
-      const other = edges[earlier];
-      const duplicate =
-        (other.a === edge.a && other.b === edge.b) ||
-        (other.a === edge.b && other.b === edge.a);
-      if (duplicate) {
+    for (let j = 0; j < i; j += 1) {
+      const other = edges[j];
+      if ((other.a === edge.a && other.b === edge.b) || (other.a === edge.b && other.b === edge.a)) {
         removeEdge(edge);
         break;
       }
@@ -367,12 +371,10 @@ function removeDuplicateEdges() {
 
 function mergeVertices(source, target) {
   if (source === target) return target;
-
   edges.forEach((edge) => {
     if (edge.a === source) edge.a = target;
     if (edge.b === source) edge.b = target;
   });
-
   removeDuplicateEdges();
   scene.remove(source);
   const index = vertices.indexOf(source);
@@ -388,7 +390,7 @@ function clearSnapVisual() {
   previewVertex.visible = false;
   snapHaloA.scale.setScalar(1);
   snapHaloB.scale.setScalar(1);
-  setHint('拖動頂點或稜；綠色位置代表放手後會自動連接', false);
+  setHint('撳下方箭嘴展開工具；綠色位置代表可自動吸附', false);
 }
 
 function setGhostEdge(start, end) {
@@ -396,10 +398,7 @@ function setGhostEdge(start, end) {
   const length = Math.max(direction.length(), 0.01);
   snapEdge.position.copy(start).add(end).multiplyScalar(0.5);
   snapEdge.scale.set(1, length, 1);
-  snapEdge.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    direction.normalize(),
-  );
+  snapEdge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
   snapEdge.visible = true;
 }
 
@@ -409,38 +408,28 @@ function showVertexSnap(candidate) {
   previewVertex.visible = true;
   snapHaloA.position.copy(candidate.position);
   snapHaloA.visible = true;
-
   if (candidate.source) {
     snapHaloB.position.copy(candidate.source.position);
     snapHaloB.visible = true;
     setGhostEdge(candidate.source.position, candidate.position);
   }
-
-  setHint(
-    candidate.merge
-      ? '放手後會合併到綠色頂點'
-      : '放手後會自動吸附及連接',
-    true,
-  );
+  setHint(candidate.merge ? '放手後會合併到綠色頂點' : '放手後會自動吸附及連接', true);
 }
 
-function showEdgeSnap(candidate) {
+function showEdgeSnap(candidate, mode) {
   clearSnapVisual();
   snapHaloA.position.copy(candidate.aPos);
   snapHaloB.position.copy(candidate.bPos);
   snapHaloA.visible = true;
   snapHaloB.visible = true;
   setGhostEdge(candidate.aPos, candidate.bPos);
-  setHint('放手後稜會自動接到綠色位置', true);
+  snapEdge.material.color.setHex(mode === 'free' ? 0x8b5cf6 : 0x18b36e);
+  setHint(mode === 'free' ? '放手後建立斜稜，可組裝錐體' : '放手後直稜會自動接上', true);
 }
 
 function showSolidSnap(candidate, type) {
   clearSnapVisual();
-  snapHaloA.position.set(
-    candidate.position.x,
-    candidate.position.y + 0.08,
-    candidate.position.z,
-  );
+  snapHaloA.position.set(candidate.position.x, candidate.position.y + 0.08, candidate.position.z);
   snapHaloA.scale.setScalar(1.45);
   snapHaloA.visible = true;
   setHint(`放手後放置${type === 'sphere' ? '球體' : '圓錐'}`, true);
@@ -448,11 +437,10 @@ function showSolidSnap(candidate, type) {
 
 function validVertexPosition(vertex, position, mergeTarget = null) {
   if (position.y < BASE_Y || position.y > layerY(MAX_LAYER - 1)) return false;
-
   const occupied = findVertexAt(position, vertex);
   if (occupied && occupied !== mergeTarget) return false;
-
   return connectedEdges(vertex).every((edge) => {
+    if (edge.mode === 'free') return true;
     const neighbour = edge.a === vertex ? edge.b : edge.a;
     if (mergeTarget && neighbour === mergeTarget) return true;
     return isAxisAligned(position, neighbour.position);
@@ -461,24 +449,13 @@ function validVertexPosition(vertex, position, mergeTarget = null) {
 
 function candidateForVertex(vertex, x, y, layer) {
   let best = null;
-
   vertices.forEach((target) => {
     if (target === vertex) return;
     const distance = screenDistance(target.position, x, y);
-    if (
-      distance < SNAP_PX &&
-      validVertexPosition(vertex, target.position, target) &&
-      (!best || distance < best.distance)
-    ) {
-      best = {
-        type: 'merge',
-        merge: target,
-        position: target.position.clone(),
-        distance,
-      };
+    if (distance < SNAP_PX && validVertexPosition(vertex, target.position, target) && (!best || distance < best.distance)) {
+      best = { type: 'merge', merge: target, position: target.position.clone(), distance };
     }
   });
-
   vertices.forEach((source) => {
     if (source === vertex) return;
     DIRECTIONS.forEach((direction) => {
@@ -490,33 +467,22 @@ function candidateForVertex(vertex, x, y, layer) {
       }
     });
   });
-
   const freePosition = pointOnLayer(x, y, layer);
   if (freePosition && validVertexPosition(vertex, freePosition)) {
     const distance = screenDistance(freePosition, x, y);
-    if (!best || distance < best.distance) {
-      best = { type: 'free', position: freePosition, distance };
-    }
+    if (!best || distance < best.distance) best = { type: 'free', position: freePosition, distance };
   }
-
   return best;
 }
 
 function candidateForNewVertex(x, y) {
   let best = null;
-
   vertices.forEach((target) => {
     const distance = screenDistance(target.position, x, y);
     if (distance < SNAP_PX && (!best || distance < best.distance)) {
-      best = {
-        type: 'existing',
-        existing: target,
-        position: target.position.clone(),
-        distance,
-      };
+      best = { type: 'existing', existing: target, position: target.position.clone(), distance };
     }
   });
-
   vertices.forEach((source) => {
     DIRECTIONS.forEach((direction) => {
       const position = source.position.clone().add(direction);
@@ -527,98 +493,39 @@ function candidateForNewVertex(x, y) {
       }
     });
   });
-
   const freePosition = pointOnLayer(x, y, currentLayer);
   if (freePosition) {
     const existing = findVertexAt(freePosition);
     const distance = screenDistance(freePosition, x, y);
     if (!best || distance < best.distance) {
       best = existing
-        ? {
-            type: 'existing',
-            existing,
-            position: existing.position.clone(),
-            distance,
-          }
+        ? { type: 'existing', existing, position: existing.position.clone(), distance }
         : { type: 'free', position: freePosition, distance };
     }
   }
-
   return best;
 }
 
-function potentialSegments(exceptEdge = null) {
-  const candidates = [];
-
-  for (let first = 0; first < vertices.length; first += 1) {
-    for (let second = first + 1; second < vertices.length; second += 1) {
-      const a = vertices[first];
-      const b = vertices[second];
-      if (
-        isAxisAligned(a.position, b.position) &&
-        !edgeExists(a, b, exceptEdge)
-      ) {
-        candidates.push({
-          a,
-          b,
-          aPos: a.position.clone(),
-          bPos: b.position.clone(),
-        });
+function candidateForEdge(x, y, mode, exceptEdge = null) {
+  let best = null;
+  for (let i = 0; i < vertices.length; i += 1) {
+    for (let j = i + 1; j < vertices.length; j += 1) {
+      const a = vertices[i];
+      const b = vertices[j];
+      if (edgeExists(a, b, exceptEdge)) continue;
+      if (mode === 'straight' && !isAxisAligned(a.position, b.position)) continue;
+      const distance = distanceToScreenSegment(a.position, b.position, x, y);
+      if (distance < 64 && (!best || distance < best.distance)) {
+        best = { a, b, aPos: a.position.clone(), bPos: b.position.clone(), distance };
       }
     }
   }
-
-  vertices.forEach((a) => {
-    DIRECTIONS.forEach((direction) => {
-      const bPosition = a.position.clone().add(direction);
-      const b = findVertexAt(bPosition);
-      if (b) {
-        if (!edgeExists(a, b, exceptEdge)) {
-          candidates.push({
-            a,
-            b,
-            aPos: a.position.clone(),
-            bPos: b.position.clone(),
-          });
-        }
-      } else {
-        candidates.push({
-          a,
-          b: null,
-          aPos: a.position.clone(),
-          bPos: bPosition,
-        });
-      }
-    });
-  });
-
-  return candidates;
-}
-
-function candidateForEdge(x, y, exceptEdge = null) {
-  let best = null;
-
-  potentialSegments(exceptEdge).forEach((candidate) => {
-    const midpoint = candidate.aPos.clone().add(candidate.bPos).multiplyScalar(0.5);
-    const distance = screenDistance(midpoint, x, y);
-    if (distance < 100 && (!best || distance < best.distance)) {
-      best = { ...candidate, distance };
-    }
-  });
-
   if (best) return best;
-
+  if (mode === 'free') return null;
   const aPos = pointOnLayer(x, y, currentLayer);
   if (!aPos) return null;
-
   const bPos = aPos.clone().add(new THREE.Vector3(STEP, 0, 0));
-  return {
-    a: findVertexAt(aPos),
-    b: findVertexAt(bPos),
-    aPos,
-    bPos,
-    distance: 999,
-  };
+  return { a: findVertexAt(aPos), b: findVertexAt(bPos), aPos, bPos, distance: 999 };
 }
 
 function candidateForSolid(x, y, layer) {
@@ -640,7 +547,6 @@ function clearSelection() {
     selected.item.material.emissive.setHex(0);
     selected.item.scale.setScalar(1);
   }
-
   selected = null;
   ui.selection.classList.remove('show');
 }
@@ -666,7 +572,7 @@ function selectEdge(edge) {
   edge.mesh.material.emissive.setHex(0x9a5b00);
   edge.mesh.scale.x = 1.25;
   edge.mesh.scale.z = 1.25;
-  ui.selectionName.textContent = `稜 ${edge.id}`;
+  ui.selectionName.textContent = `${edge.mode === 'free' ? '斜稜' : '直稜'} ${edge.id}`;
   ui.selection.classList.add('show');
   showLayerButtons(false);
 }
@@ -676,16 +582,13 @@ function selectSolid(solid) {
   selected = { type: 'solid', item: solid };
   solid.material.emissive.setHex(0x704000);
   solid.scale.setScalar(1.08);
-  ui.selectionName.textContent = `${
-    solid.userData.solidType === 'sphere' ? '球體' : '圓錐'
-  } ${solid.userData.id}`;
+  ui.selectionName.textContent = `${solid.userData.solidType === 'sphere' ? '球體' : '圓錐'} ${solid.userData.id}`;
   ui.selection.classList.add('show');
   showLayerButtons(true);
 }
 
 function deleteSelected() {
   if (!selected) return;
-
   if (selected.type === 'edge') {
     removeEdge(selected.item);
     clearSelection();
@@ -693,7 +596,6 @@ function deleteSelected() {
     showToast('已刪除稜');
     return;
   }
-
   if (selected.type === 'solid') {
     const solid = selected.item;
     scene.remove(solid);
@@ -703,7 +605,6 @@ function deleteSelected() {
     showToast('已刪除曲面立體');
     return;
   }
-
   const vertex = selected.item;
   [...connectedEdges(vertex)].forEach(removeEdge);
   scene.remove(vertex);
@@ -715,33 +616,23 @@ function deleteSelected() {
 
 function moveSelectedLayer(delta) {
   if (!selected || selected.type === 'edge') return;
-
   if (selected.type === 'solid') {
     const solid = selected.item;
-    const oldLayer = Math.round(
-      (solid.position.y - solid.userData.halfHeight - BASE_Y) / STEP,
-    );
+    const oldLayer = Math.round((solid.position.y - solid.userData.halfHeight - BASE_Y) / STEP);
     const newLayer = Math.max(0, Math.min(MAX_LAYER - 1, oldLayer + delta));
     solid.position.y = layerY(newLayer) + solid.userData.halfHeight;
     currentLayer = newLayer;
     updateUI();
-    showToast(
-      `${solid.userData.solidType === 'sphere' ? '球體' : '圓錐'}已移到第 ${
-        newLayer + 1
-      } 層`,
-    );
+    showToast(`${solid.userData.solidType === 'sphere' ? '球體' : '圓錐'}已移到第 ${newLayer + 1} 層`);
     return;
   }
-
   const vertex = selected.item;
   const nextPosition = vertex.position.clone();
   nextPosition.y += delta * STEP;
-
   if (!validVertexPosition(vertex, nextPosition)) {
-    showToast('這個位置會令稜變斜或重疊');
+    showToast('直稜會變斜，請使用斜稜或先刪除直稜');
     return;
   }
-
   vertex.position.copy(nextPosition);
   currentLayer = Math.round((nextPosition.y - BASE_Y) / STEP);
   updateUI();
@@ -778,13 +669,15 @@ function moveGhost(x, y) {
 function iconClass(type) {
   if (type === 'vertex') return 'vertex-icon';
   if (type === 'edge') return 'edge-icon';
+  if (type === 'free-edge') return 'slanted-edge-icon';
   if (type === 'sphere') return 'sphere-icon';
   return 'cone-icon';
 }
 
 function toolName(type) {
   if (type === 'vertex') return '頂點';
-  if (type === 'edge') return '稜';
+  if (type === 'edge') return '直稜';
+  if (type === 'free-edge') return '斜稜';
   if (type === 'sphere') return '球體';
   return '圓錐';
 }
@@ -797,302 +690,192 @@ function startToolDrag(event, type) {
   ui.ghostIcon.className = iconClass(type);
   ui.ghostText.textContent = toolName(type);
   moveGhost(event.clientX, event.clientY);
-
   window.addEventListener('pointermove', onToolMove);
   window.addEventListener('pointerup', endToolDrag, { once: true });
 }
 
 function onToolMove(event) {
   if (!toolDrag) return;
-
   moveGhost(event.clientX, event.clientY);
   const rect = renderer.domElement.getBoundingClientRect();
-
-  const outside =
-    event.clientX < rect.left ||
-    event.clientX > rect.right ||
-    event.clientY < rect.top ||
-    event.clientY > rect.bottom;
-
+  const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
   if (outside) {
     toolDrag.candidate = null;
     clearSnapVisual();
     return;
   }
-
-  let candidate = null;
   if (toolDrag.type === 'vertex') {
-    candidate = candidateForNewVertex(event.clientX, event.clientY);
-    if (candidate) showVertexSnap(candidate);
-  } else if (toolDrag.type === 'edge') {
-    candidate = candidateForEdge(event.clientX, event.clientY);
-    if (candidate) showEdgeSnap(candidate);
+    toolDrag.candidate = candidateForNewVertex(event.clientX, event.clientY);
+    if (toolDrag.candidate) showVertexSnap(toolDrag.candidate);
+  } else if (toolDrag.type === 'edge' || toolDrag.type === 'free-edge') {
+    const mode = toolDrag.type === 'free-edge' ? 'free' : 'straight';
+    toolDrag.candidate = candidateForEdge(event.clientX, event.clientY, mode);
+    if (toolDrag.candidate) showEdgeSnap(toolDrag.candidate, mode);
+    else if (mode === 'free') setHint('斜稜要拖近兩個已放置的頂點', false);
   } else {
-    candidate = candidateForSolid(event.clientX, event.clientY, currentLayer);
-    if (candidate) showSolidSnap(candidate, toolDrag.type);
+    toolDrag.candidate = candidateForSolid(event.clientX, event.clientY, currentLayer);
+    if (toolDrag.candidate) showSolidSnap(toolDrag.candidate, toolDrag.type);
   }
-
-  toolDrag.candidate = candidate;
 }
 
 function endToolDrag() {
   window.removeEventListener('pointermove', onToolMove);
   ui.ghost.classList.remove('show', 'snap');
   controls.enabled = true;
-
   if (!toolDrag) return;
-
   const { type, candidate } = toolDrag;
   toolDrag = null;
   clearSnapVisual();
-
   if (!candidate) {
-    showToast('請將物件拖入圖格');
+    showToast(type === 'free-edge' ? '請先放置兩個頂點，再將斜稜拖近它們' : '請將物件拖入圖格');
     return;
   }
-
   if (type === 'vertex') {
     if (candidate.type === 'existing') {
       selectVertex(candidate.existing);
       showToast('已選取最近的頂點');
       return;
     }
-
     const vertex = createVertex(candidate.position);
-    if (candidate.source && !edgeExists(candidate.source, vertex)) {
-      createEdge(candidate.source, vertex);
-    }
+    if (candidate.source && !edgeExists(candidate.source, vertex)) createEdge(candidate.source, vertex, 'straight');
     selectVertex(vertex);
     showToast(candidate.source ? '頂點已自動吸附並連接' : '已放置頂點');
     return;
   }
-
-  if (type === 'edge') {
+  if (type === 'edge' || type === 'free-edge') {
+    const mode = type === 'free-edge' ? 'free' : 'straight';
     const a = candidate.a || createVertex(candidate.aPos);
     const b = candidate.b || createVertex(candidate.bPos);
-    const edge = createEdge(a, b);
+    const edge = createEdge(a, b, mode);
     if (edge) {
       selectEdge(edge);
-      showToast('稜已自動吸附連接');
-    } else {
-      showToast('這個位置已有稜');
-    }
+      showToast(mode === 'free' ? '已建立斜稜，可繼續組裝錐體' : '直稜已自動吸附連接');
+    } else showToast('這兩個頂點已經連接');
     return;
   }
-
   const solid = createSolid(type, candidate.position);
   selectSolid(solid);
   showToast(`已加入${type === 'sphere' ? '球體' : '圓錐'}`);
 }
 
 document.querySelectorAll('[data-tool]').forEach((element) => {
-  element.addEventListener('pointerdown', (event) => {
-    startToolDrag(event, element.dataset.tool);
-  });
+  element.addEventListener('pointerdown', (event) => startToolDrag(event, element.dataset.tool));
 });
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
   const object = pickObject(event.clientX, event.clientY);
-
-  if (!object) {
-    objectDrag = {
-      kind: 'orbit',
-      x: event.clientX,
-      y: event.clientY,
-      moved: false,
-    };
-    return;
-  }
-
+  if (!object) return;
   event.preventDefault();
   controls.enabled = false;
-
   if (object.userData.kind === 'vertex') {
     objectDrag = {
-      kind: 'vertex',
-      item: object,
-      x: event.clientX,
-      y: event.clientY,
-      moved: false,
-      original: object.position.clone(),
-      layer: Math.round((object.position.y - BASE_Y) / STEP),
-      candidate: null,
+      kind: 'vertex', item: object, x: event.clientX, y: event.clientY,
+      moved: false, original: object.position.clone(),
+      layer: Math.round((object.position.y - BASE_Y) / STEP), candidate: null,
     };
-    return;
-  }
-
-  if (object.userData.kind === 'edge') {
+  } else if (object.userData.kind === 'edge') {
     const edge = object.userData.edge;
-    objectDrag = {
-      kind: 'edge',
-      item: edge,
-      x: event.clientX,
-      y: event.clientY,
-      moved: false,
-      candidate: null,
-    };
+    objectDrag = { kind: 'edge', item: edge, x: event.clientX, y: event.clientY, moved: false, candidate: null };
     edge.mesh.material.transparent = true;
     edge.mesh.material.opacity = 0.25;
-    return;
+  } else {
+    const layer = Math.round((object.position.y - object.userData.halfHeight - BASE_Y) / STEP);
+    objectDrag = {
+      kind: 'solid', item: object, x: event.clientX, y: event.clientY,
+      moved: false, original: object.position.clone(), layer, candidate: null,
+    };
   }
-
-  const layer = Math.round(
-    (object.position.y - object.userData.halfHeight - BASE_Y) / STEP,
-  );
-  objectDrag = {
-    kind: 'solid',
-    item: object,
-    x: event.clientX,
-    y: event.clientY,
-    moved: false,
-    original: object.position.clone(),
-    layer,
-    candidate: null,
-  };
 });
 
 renderer.domElement.addEventListener('pointermove', (event) => {
-  if (!objectDrag || objectDrag.kind === 'orbit') return;
-
-  if (Math.hypot(event.clientX - objectDrag.x, event.clientY - objectDrag.y) > 5) {
-    objectDrag.moved = true;
-  }
+  if (!objectDrag) return;
+  if (Math.hypot(event.clientX - objectDrag.x, event.clientY - objectDrag.y) > 5) objectDrag.moved = true;
   if (!objectDrag.moved) return;
-
   if (objectDrag.kind === 'vertex') {
-    const candidate = candidateForVertex(
-      objectDrag.item,
-      event.clientX,
-      event.clientY,
-      objectDrag.layer,
-    );
+    const candidate = candidateForVertex(objectDrag.item, event.clientX, event.clientY, objectDrag.layer);
     objectDrag.candidate = candidate;
     if (candidate) {
       objectDrag.item.position.copy(candidate.position);
       edges.forEach(updateEdge);
       showVertexSnap(candidate);
     }
-    return;
-  }
-
-  if (objectDrag.kind === 'edge') {
-    const candidate = candidateForEdge(
-      event.clientX,
-      event.clientY,
-      objectDrag.item,
-    );
+  } else if (objectDrag.kind === 'edge') {
+    const candidate = candidateForEdge(event.clientX, event.clientY, objectDrag.item.mode, objectDrag.item);
     objectDrag.candidate = candidate;
-    if (candidate) showEdgeSnap(candidate);
-    return;
-  }
-
-  const candidate = candidateForSolid(
-    event.clientX,
-    event.clientY,
-    objectDrag.layer,
-  );
-  objectDrag.candidate = candidate;
-  if (candidate) {
-    objectDrag.item.position.set(
-      candidate.position.x,
-      candidate.position.y + objectDrag.item.userData.halfHeight,
-      candidate.position.z,
-    );
-    showSolidSnap(candidate, objectDrag.item.userData.solidType);
+    if (candidate) showEdgeSnap(candidate, objectDrag.item.mode);
+  } else {
+    const candidate = candidateForSolid(event.clientX, event.clientY, objectDrag.layer);
+    objectDrag.candidate = candidate;
+    if (candidate) {
+      objectDrag.item.position.set(candidate.position.x, candidate.position.y + objectDrag.item.userData.halfHeight, candidate.position.z);
+      showSolidSnap(candidate, objectDrag.item.userData.solidType);
+    }
   }
 });
 
 renderer.domElement.addEventListener('pointerup', () => {
   if (!objectDrag) return;
-
   const drag = objectDrag;
   objectDrag = null;
-
-  if (drag.kind === 'orbit') return;
-
   controls.enabled = true;
   clearSnapVisual();
-
   if (drag.kind === 'vertex') {
     if (!drag.moved) {
       selectVertex(drag.item);
       return;
     }
-
-    const candidate = drag.candidate;
-    if (!candidate) {
+    if (!drag.candidate) {
       drag.item.position.copy(drag.original);
       edges.forEach(updateEdge);
-      showToast('未找到合適連接位置');
+      showToast('未找到合適位置');
       return;
     }
-
     let result = drag.item;
-    if (candidate.type === 'merge') {
-      result = mergeVertices(drag.item, candidate.merge);
-    } else {
-      drag.item.position.copy(candidate.position);
-      if (candidate.source && !edgeExists(candidate.source, drag.item)) {
-        createEdge(candidate.source, drag.item);
+    if (drag.candidate.type === 'merge') result = mergeVertices(drag.item, drag.candidate.merge);
+    else {
+      drag.item.position.copy(drag.candidate.position);
+      if (drag.candidate.source && !edgeExists(drag.candidate.source, drag.item)) {
+        createEdge(drag.candidate.source, drag.item, 'straight');
       }
     }
-
     edges.forEach(updateEdge);
     selectVertex(result);
-    showToast(
-      candidate.type === 'free'
-        ? '頂點已移到格點'
-        : '頂點已自動吸附連接',
-    );
+    showToast(drag.candidate.type === 'free' ? '頂點已移到格點' : '頂點已自動吸附連接');
     return;
   }
-
   if (drag.kind === 'solid') {
     if (!drag.moved) drag.item.position.copy(drag.original);
     selectSolid(drag.item);
-    if (drag.moved) {
-      showToast(
-        `${drag.item.userData.solidType === 'sphere' ? '球體' : '圓錐'}已移動`,
-      );
-    }
+    if (drag.moved) showToast(`${drag.item.userData.solidType === 'sphere' ? '球體' : '圓錐'}已移動`);
     return;
   }
-
   drag.item.mesh.material.opacity = 1;
   drag.item.mesh.material.transparent = false;
-
   if (!drag.moved) {
     selectEdge(drag.item);
     return;
   }
-
-  const candidate = drag.candidate;
-  if (!candidate) {
+  if (!drag.candidate) {
     showToast('未找到合適連接位置');
     selectEdge(drag.item);
     return;
   }
-
-  const a = candidate.a || createVertex(candidate.aPos);
-  const b = candidate.b || createVertex(candidate.bPos);
-
+  const a = drag.candidate.a || createVertex(drag.candidate.aPos);
+  const b = drag.candidate.b || createVertex(drag.candidate.bPos);
   if (edgeExists(a, b, drag.item)) {
-    showToast('這個位置已有稜');
+    showToast('這兩個頂點已經連接');
     selectEdge(drag.item);
     return;
   }
-
   drag.item.a = a;
   drag.item.b = b;
   updateEdge(drag.item);
   selectEdge(drag.item);
-  showToast('稜已自動轉移並連接');
+  showToast(`${drag.item.mode === 'free' ? '斜稜' : '直稜'}已轉移並連接`);
 });
 
 renderer.domElement.addEventListener('pointercancel', () => {
-  if (objectDrag?.kind === 'vertex' || objectDrag?.kind === 'solid') {
-    objectDrag.item.position.copy(objectDrag.original);
-  }
+  if (objectDrag?.kind === 'vertex' || objectDrag?.kind === 'solid') objectDrag.item.position.copy(objectDrag.original);
   if (objectDrag?.kind === 'edge') {
     objectDrag.item.mesh.material.opacity = 1;
     objectDrag.item.mesh.material.transparent = false;
@@ -1119,105 +902,89 @@ document.getElementById('moveUpBtn').onclick = () => moveSelectedLayer(1);
 document.getElementById('moveDownBtn').onclick = () => moveSelectedLayer(-1);
 document.getElementById('deleteBtn').onclick = deleteSelected;
 document.getElementById('resetViewBtn').onclick = resetView;
+document.getElementById('quickClearBtn').onclick = () => {
+  if (window.confirm('確定要立即清空所有頂點、稜、球體和圓錐嗎？')) {
+    clearAll();
+    showToast('已立即清空');
+  }
+};
 
 function addGuideEdge(start, end, material) {
   const direction = end.clone().sub(start);
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.035, 0.035, 1, 10),
-    material,
-  );
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1, 10), material);
   mesh.position.copy(start).add(end).multiplyScalar(0.5);
   mesh.scale.set(1, direction.length(), 1);
-  mesh.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    direction.normalize(),
-  );
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
   guideGroup.add(mesh);
 }
 
-function showGuide(type) {
+function clearGuide() {
   while (guideGroup.children.length) {
     const child = guideGroup.children.pop();
     child.geometry?.dispose();
     child.material?.dispose();
   }
+}
 
+function showGuide(type) {
+  clearGuide();
   if (type === 'none') return;
-
-  const x = type === 'cube' ? 2 : 4;
-  const z = 2;
   const bottom = BASE_Y;
   const top = BASE_Y + STEP;
+  let points = [];
+  let links = [];
 
-  const points = [
-    [-x, bottom, -z],
-    [x, bottom, -z],
-    [x, bottom, z],
-    [-x, bottom, z],
-    [-x, top, -z],
-    [x, top, -z],
-    [x, top, z],
-    [-x, top, z],
-  ].map((point) => new THREE.Vector3(...point));
+  if (type === 'cube' || type === 'cuboid') {
+    const x = type === 'cube' ? 2 : 4;
+    const z = 2;
+    points = [
+      [-x, bottom, -z], [x, bottom, -z], [x, bottom, z], [-x, bottom, z],
+      [-x, top, -z], [x, top, -z], [x, top, z], [-x, top, z],
+    ];
+    links = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  } else if (type === 'triPyramid') {
+    points = [[-2,bottom,-2],[2,bottom,-2],[0,bottom,2],[0,top,0]];
+    links = [[0,1],[1,2],[2,0],[0,3],[1,3],[2,3]];
+  } else {
+    points = [[-2,bottom,-2],[2,bottom,-2],[2,bottom,2],[-2,bottom,2],[0,top,0]];
+    links = [[0,1],[1,2],[2,3],[3,0],[0,4],[1,4],[2,4],[3,4]];
+  }
 
-  const vertexMaterial = new THREE.MeshBasicMaterial({
-    color: 0x60a5fa,
-    transparent: true,
-    opacity: 0.2,
-    depthWrite: false,
-  });
-  const edgeMaterial = vertexMaterial.clone();
-
-  points.forEach((point) => {
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 16, 12),
-      vertexMaterial.clone(),
-    );
+  const vectors = points.map((point) => new THREE.Vector3(...point));
+  const vertexMaterial = new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.24, depthWrite: false });
+  const edgeMaterial = new THREE.MeshBasicMaterial({ color: type.includes('Pyramid') ? 0x8b5cf6 : 0x60a5fa, transparent: true, opacity: 0.25, depthWrite: false });
+  vectors.forEach((point) => {
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), vertexMaterial.clone());
     marker.position.copy(point);
     guideGroup.add(marker);
   });
-
-  [
-    [0, 1],
-    [1, 2],
-    [2, 3],
-    [3, 0],
-    [4, 5],
-    [5, 6],
-    [6, 7],
-    [7, 4],
-    [0, 4],
-    [1, 5],
-    [2, 6],
-    [3, 7],
-  ].forEach(([start, end]) => {
-    addGuideEdge(points[start], points[end], edgeMaterial.clone());
-  });
+  links.forEach(([a, b]) => addGuideEdge(vectors[a], vectors[b], edgeMaterial.clone()));
 }
 
-document.getElementById('guideSelect').onchange = (event) => {
-  showGuide(event.target.value);
-  showToast(
-    event.target.value === 'none' ? '已關閉導引' : '已顯示淡色導引',
-  );
+ui.guideSelect.onchange = (event) => {
+  const type = event.target.value;
+  showGuide(type);
+  if (type === 'triPyramid' || type === 'squarePyramid') {
+    setToolsOpen(true);
+    document.querySelector('[data-tool="free-edge"]')?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    showToast('先放底面和尖頂，再用紫色斜稜連接');
+  } else {
+    showToast(type === 'none' ? '已關閉導引' : '已顯示淡色導引');
+  }
 };
 
 function componentsCount() {
   const seen = new Set();
   let count = 0;
-
   vertices.forEach((vertex) => {
     if (seen.has(vertex)) return;
-
     count += 1;
     const stack = [vertex];
     seen.add(vertex);
-
     while (stack.length) {
       const current = stack.pop();
       edges.forEach((edge) => {
-        const next =
-          edge.a === current ? edge.b : edge.b === current ? edge.a : null;
+        const next = edge.a === current ? edge.b : edge.b === current ? edge.a : null;
         if (next && !seen.has(next)) {
           seen.add(next);
           stack.push(next);
@@ -1225,7 +992,6 @@ function componentsCount() {
       });
     }
   });
-
   return count + solids.length;
 }
 
@@ -1235,88 +1001,52 @@ function analyse() {
     degree.set(edge.a, (degree.get(edge.a) || 0) + 1);
     degree.set(edge.b, (degree.get(edge.b) || 0) + 1);
   });
-
-  const degreeValues = vertices
-    .map((vertex) => degree.get(vertex) || 0)
-    .sort((a, b) => a - b);
-
-  const occupiedLevels = new Set([
+  const values = vertices.map((vertex) => degree.get(vertex) || 0).sort((a, b) => a - b);
+  const levels = new Set([
     ...vertices.map((vertex) => vertex.position.y),
-    ...solids.map((solid) => {
-      const layer = Math.round(
-        (solid.position.y - solid.userData.halfHeight - BASE_Y) / STEP,
-      );
-      return layerY(layer);
-    }),
-  ]);
-
-  const levels = occupiedLevels.size;
+    ...solids.map((solid) => layerY(Math.round((solid.position.y - solid.userData.halfHeight - BASE_Y) / STEP))),
+  ]).size;
   const parts = componentsCount();
-  const sphereCount = solids.filter(
-    (solid) => solid.userData.solidType === 'sphere',
-  ).length;
-  const coneCount = solids.filter(
-    (solid) => solid.userData.solidType === 'cone',
-  ).length;
-
+  const sphereCount = solids.filter((solid) => solid.userData.solidType === 'sphere').length;
+  const coneCount = solids.filter((solid) => solid.userData.solidType === 'cone').length;
+  const slantedCount = edges.filter((edge) => edge.mode === 'free').length;
   let name = '自由創作模型';
-  let message = '模型包含直稜框架或曲面立體。';
+  let message = '模型包含直稜、斜稜或曲面立體。';
 
   if (!vertices.length && !solids.length) {
     name = '模型仍是空白';
-    message = '先由零件盒拖出頂點、稜、球體或圓錐。';
+    message = '先展開工具，再加入頂點、稜、球體或圓錐。';
+  } else if (vertices.length === 4 && edges.length === 6 && values.every((value) => value === 3)) {
+    name = '三角錐（四面體）';
+    message = '共有4個頂點、6條稜和4個三角形面。';
+  } else if (vertices.length === 5 && edges.length === 8 && values.join(',') === '3,3,3,3,4') {
+    name = '四角錐';
+    message = '共有5個頂點、8條稜；底面是四邊形，四條斜稜連向尖頂。';
+  } else if (vertices.length === 8 && edges.length === 12 && values.every((value) => value === 3)) {
+    const xValues = [...new Set(vertices.map((vertex) => vertex.position.x))];
+    const zValues = [...new Set(vertices.map((vertex) => vertex.position.z))];
+    const squareBase = xValues.length === 2 && zValues.length === 2 && Math.abs(xValues[1] - xValues[0]) === Math.abs(zValues[1] - zValues[0]);
+    name = squareBase ? '可能是正方體框架' : '可能是長方體框架';
+    message = '共有8個頂點、12條稜，每個頂點連接3條稜。';
   } else if (sphereCount === 1 && coneCount === 0 && !vertices.length) {
     name = '球體';
     message = '球體只有一個曲面，沒有平面、稜和頂點。';
   } else if (coneCount === 1 && sphereCount === 0 && !vertices.length) {
     name = '圓錐';
     message = '圓錐有一個尖頂、一個圓形平面及一個曲面。';
-  } else if (solids.length && !vertices.length) {
-    name = '曲面立體組合';
-    message = `模型包含 ${sphereCount} 個球體和 ${coneCount} 個圓錐。`;
   } else if (parts > 1) {
     name = solids.length ? '混合立體模型' : '模型有未連接部分';
     message = `目前共有 ${parts} 個分開部分。`;
-  } else if (
-    vertices.length === 8 &&
-    edges.length === 12 &&
-    degreeValues.every((value) => value === 3)
-  ) {
-    const xValues = [...new Set(vertices.map((vertex) => vertex.position.x))];
-    const zValues = [...new Set(vertices.map((vertex) => vertex.position.z))];
-    const squareBase =
-      xValues.length === 2 &&
-      zValues.length === 2 &&
-      Math.abs(xValues[1] - xValues[0]) ===
-        Math.abs(zValues[1] - zValues[0]);
-
-    name = squareBase ? '可能是正方體框架' : '可能是長方體框架';
-    message = '共有8個頂點、12條稜，每個頂點連接3條稜。';
-  } else if (
-    vertices.length === 4 &&
-    edges.length === 4 &&
-    degreeValues.every((value) => value === 2)
-  ) {
-    name = '可能是正方形或長方形框架';
-    message = '共有4個頂點和4條稜。';
   }
 
-  return {
-    degree,
-    levels,
-    parts,
-    name,
-    message,
-    sphereCount,
-    coneCount,
-  };
+  return { degree, levels, parts, sphereCount, coneCount, slantedCount, name, message };
 }
 
 function showData() {
   const result = analyse();
-
   document.getElementById('resultVertices').textContent = vertices.length;
   document.getElementById('resultEdges').textContent = edges.length;
+  document.getElementById('resultSlanted').textContent = result.slantedCount;
   document.getElementById('resultSpheres').textContent = result.sphereCount;
   document.getElementById('resultCones').textContent = result.coneCount;
   document.getElementById('resultLevels').textContent = result.levels;
@@ -1325,47 +1055,25 @@ function showData() {
   document.getElementById('shapeMessage').textContent = result.message;
 
   const details = [];
-
   if (vertices.length) {
-    details.push(
-      `<b>每個頂點連接的稜：</b><br>${vertices
-        .map(
-          (vertex) =>
-            `頂點 ${vertex.userData.id}：${result.degree.get(vertex) || 0} 條`,
-        )
-        .join('　 ')}`,
-    );
+    details.push(`<b>每個頂點連接的稜：</b><br>${vertices.map((vertex) => `頂點 ${vertex.userData.id}：${result.degree.get(vertex) || 0} 條`).join('　 ')}`);
   }
-
-  if (result.sphereCount) {
-    details.push('<b>球體：</b>只有1個曲面，沒有頂點和稜。');
-  }
-
-  if (result.coneCount) {
-    details.push('<b>圓錐：</b>有1個尖頂、1個圓形平面和1個曲面。');
-  }
-
-  document.getElementById('detail').innerHTML =
-    details.join('<br><br>') || '尚未有模型資料。';
-
+  if (result.slantedCount) details.push(`<b>斜稜：</b>${result.slantedCount} 條，可用來組裝三角錐和四角錐。`);
+  if (result.sphereCount) details.push('<b>球體：</b>只有1個曲面，沒有頂點和稜。');
+  if (result.coneCount) details.push('<b>圓錐：</b>有1個尖頂、1個圓形平面和1個曲面。');
+  document.getElementById('detail').innerHTML = details.join('<br><br>') || '尚未有模型資料。';
   document.getElementById('dataModal').classList.add('show');
 }
 
 document.getElementById('finishBtn').onclick = showData;
-document.getElementById('continueBtn').onclick = () => {
-  document.getElementById('dataModal').classList.remove('show');
-};
+document.getElementById('continueBtn').onclick = () => document.getElementById('dataModal').classList.remove('show');
 document.getElementById('clearBtn').onclick = () => {
   document.getElementById('dataModal').classList.remove('show');
   clearAll();
   resetView();
 };
-document.getElementById('helpBtn').onclick = () => {
-  document.getElementById('helpModal').classList.add('show');
-};
-document.getElementById('closeHelpBtn').onclick = () => {
-  document.getElementById('helpModal').classList.remove('show');
-};
+document.getElementById('helpBtn').onclick = () => document.getElementById('helpModal').classList.add('show');
+document.getElementById('closeHelpBtn').onclick = () => document.getElementById('helpModal').classList.remove('show');
 document.getElementById('dataModal').onclick = (event) => {
   if (event.target.id === 'dataModal') event.currentTarget.classList.remove('show');
 };
@@ -1377,11 +1085,9 @@ function animate() {
   requestAnimationFrame(animate);
   controls.update();
   edges.forEach(updateEdge);
-
   const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.1;
   if (snapHaloA.visible) snapHaloA.scale.setScalar(pulse);
   if (snapHaloB.visible) snapHaloB.scale.setScalar(pulse);
-
   renderer.render(scene, camera);
 }
 
