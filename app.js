@@ -1011,13 +1011,111 @@ stack.push(next);
 });
 return count + solids.length;
 }
-function analyse() {
+function chineseNumber(value) {
+const names = {
+3: '三', 4: '四', 5: '五', 6: '六', 7: '七', 8: '八', 9: '九',
+10: '十', 11: '十一', 12: '十二',
+};
+return names[value] || String(value);
+}
+function degreeMap() {
 const degree = new Map(vertices.map((vertex) => [vertex, 0]));
 edges.forEach((edge) => {
 degree.set(edge.a, (degree.get(edge.a) || 0) + 1);
 degree.set(edge.b, (degree.get(edge.b) || 0) + 1);
 });
-const values = vertices.map((vertex) => degree.get(vertex) || 0).sort((a, b) => a - b);
+return degree;
+}
+function countEdgesWithin(vertexList) {
+const set = new Set(vertexList);
+return edges.filter((edge) => set.has(edge.a) && set.has(edge.b)).length;
+}
+function countEdgesBetween(firstList, secondList) {
+const first = new Set(firstList);
+const second = new Set(secondList);
+return edges.filter((edge) =>
+(first.has(edge.a) && second.has(edge.b)) ||
+(first.has(edge.b) && second.has(edge.a)),
+).length;
+}
+function internalDegree(vertex, vertexList) {
+const set = new Set(vertexList);
+return connectedEdges(vertex).filter((edge) => {
+const other = edge.a === vertex ? edge.b : edge.a;
+return set.has(other);
+}).length;
+}
+function detectPyramid(degree) {
+const vertexCount = vertices.length;
+if (vertexCount < 4) return null;
+const sides = vertexCount - 1;
+if (edges.length !== sides * 2) return null;
+if (sides === 3) {
+if (vertices.every((vertex) => degree.get(vertex) === 3) && hasCompleteGraph(vertices)) {
+return { sides, apex: null };
+}
+return null;
+}
+const apexCandidates = vertices.filter((vertex) => degree.get(vertex) === sides);
+if (apexCandidates.length !== 1) return null;
+const apex = apexCandidates[0];
+const base = vertices.filter((vertex) => vertex !== apex);
+if (!base.every((vertex) => degree.get(vertex) === 3)) return null;
+if (!base.every((vertex) => edgeExists(vertex, apex))) return null;
+if (countEdgesWithin(base) !== sides) return null;
+if (!base.every((vertex) => internalDegree(vertex, base) === 2)) return null;
+return { sides, apex };
+}
+function detectPrism(degree) {
+const vertexCount = vertices.length;
+if (vertexCount < 6 || vertexCount % 2 !== 0) return null;
+const sides = vertexCount / 2;
+if (edges.length !== sides * 3) return null;
+if (!vertices.every((vertex) => degree.get(vertex) === 3)) return null;
+const groups = new Map();
+vertices.forEach((vertex) => {
+const key = Math.round(vertex.position.y * 1000) / 1000;
+if (!groups.has(key)) groups.set(key, []);
+groups.get(key).push(vertex);
+});
+const layers = [...groups.values()];
+if (layers.length !== 2 || layers.some((layer) => layer.length !== sides)) return null;
+const [firstLayer, secondLayer] = layers;
+if (countEdgesWithin(firstLayer) !== sides) return null;
+if (countEdgesWithin(secondLayer) !== sides) return null;
+if (countEdgesBetween(firstLayer, secondLayer) !== sides) return null;
+if (!firstLayer.every((vertex) => internalDegree(vertex, firstLayer) === 2)) return null;
+if (!secondLayer.every((vertex) => internalDegree(vertex, secondLayer) === 2)) return null;
+if (!firstLayer.every((vertex) => connectedEdges(vertex).filter((edge) => {
+const other = edge.a === vertex ? edge.b : edge.a;
+return secondLayer.includes(other);
+}).length === 1)) return null;
+return { sides, layers };
+}
+function fourSidedPrismName(prism) {
+const xs = [...new Set(vertices.map((vertex) => vertex.position.x))];
+const ys = [...new Set(vertices.map((vertex) => vertex.position.y))];
+const zs = [...new Set(vertices.map((vertex) => vertex.position.z))];
+if (xs.length === 2 && ys.length === 2 && zs.length === 2) {
+const lengths = [
+Math.abs(xs[1] - xs[0]),
+Math.abs(ys[1] - ys[0]),
+Math.abs(zs[1] - zs[0]),
+];
+const equal = Math.max(...lengths) - Math.min(...lengths) < 0.01;
+return equal ? '正方體（四角柱體）' : '長方體（四角柱體）';
+}
+return '四角柱體';
+}
+function prismName(prism) {
+if (prism.sides === 4) return fourSidedPrismName(prism);
+return `${chineseNumber(prism.sides)}角柱`;
+}
+function pyramidName(pyramid) {
+return `${chineseNumber(pyramid.sides)}角錐`;
+}
+function analyse() {
+const degree = degreeMap();
 const levels = new Set([
 ...vertices.map((vertex) => vertex.position.y),
 ...solids.map((solid) => layerY(Math.round((solid.position.y - solid.userData.halfHeight - BASE_Y) / STEP))),
@@ -1026,39 +1124,41 @@ const parts = componentsCount();
 const sphereCount = solids.filter((solid) => solid.userData.solidType === 'sphere').length;
 const coneCount = solids.filter((solid) => solid.userData.solidType === 'cone').length;
 const slantedCount = edges.filter((edge) => edge.mode === 'free').length;
-let name = '自由創作模型';
-let message = '模型包含直稜、斜稜或曲面立體。';
+let name = '未能辨認完整立體圖形';
+let message = '請檢查所有頂點是否已經正確連接，並確保模型沒有分開的部分。';
+let recognized = false;
 if (!vertices.length && !solids.length) {
 name = '模型仍是空白';
 message = '先展開工具，再加入頂點、稜、球體或圓錐。';
-} else if ((guideType === 'triPyramid' || guideType === 'squarePyramid') && guideIsComplete()) {
-name = guideType === 'triPyramid' ? '三角錐（四面體）' : '四角錐';
-message = guideType === 'triPyramid'
-? '共有4個頂點、6條稜和4個三角形面。'
-: '共有5個頂點、8條稜、1個四邊形底面和4個三角形側面。';
-} else if (vertices.length === 4 && edges.length === 6 && hasCompleteGraph(vertices)) {
-name = '三角錐（四面體）';
-message = '共有4個頂點、6條稜和4個三角形面。';
-} else if (vertices.length === 5 && edges.length === 8 && values.join(',') === '3,3,3,3,4') {
-name = '四角錐';
-message = '共有5個頂點、8條稜、1個四邊形底面和4個三角形側面。';
-} else if (vertices.length === 8 && edges.length === 12 && values.every((value) => value === 3)) {
-const xValues = [...new Set(vertices.map((vertex) => vertex.position.x))];
-const zValues = [...new Set(vertices.map((vertex) => vertex.position.z))];
-const squareBase = xValues.length === 2 && zValues.length === 2 && Math.abs(xValues[1] - xValues[0]) === Math.abs(zValues[1] - zValues[0]);
-name = squareBase ? '可能是正方體框架' : '可能是長方體框架';
-message = '共有8個頂點、12條稜，每個頂點連接3條稜。';
 } else if (sphereCount === 1 && coneCount === 0 && !vertices.length) {
 name = '球體';
-message = '球體只有一個曲面，沒有平面、稜和頂點。';
+message = '球體只有1個曲面，沒有平面、稜和頂點。';
+recognized = true;
 } else if (coneCount === 1 && sphereCount === 0 && !vertices.length) {
 name = '圓錐';
-message = '圓錐有一個尖頂、一個圓形平面及一個曲面。';
+message = '圓錐有1個尖頂、1個圓形平面及1個曲面。';
+recognized = true;
+} else if (solids.length) {
+name = '混合立體模型';
+message = `模型包含 ${sphereCount} 個球體、${coneCount} 個圓錐，以及自行組裝的頂點與稜。`;
+recognized = true;
+} else {
+const pyramid = detectPyramid(degree);
+const prism = detectPrism(degree);
+if (pyramid) {
+name = pyramidName(pyramid);
+message = `${name}有 ${pyramid.sides + 1} 個頂點、${pyramid.sides * 2} 條稜和 ${pyramid.sides + 1} 個面。`;
+recognized = true;
+} else if (prism) {
+name = prismName(prism);
+message = `${name}有 ${prism.sides * 2} 個頂點、${prism.sides * 3} 條稜和 ${prism.sides + 2} 個面。`;
+recognized = true;
 } else if (parts > 1) {
-name = solids.length ? '混合立體模型' : '模型有未連接部分';
-message = `目前共有 ${parts} 個分開部分。`;
+name = '模型有未連接部分';
+message = `目前共有 ${parts} 個分開部分，請先把它們連接起來。`;
 }
-return { degree, levels, parts, sphereCount, coneCount, slantedCount, name, message };
+}
+return { degree, levels, parts, sphereCount, coneCount, slantedCount, name, message, recognized };
 }
 function showData() {
 const result = analyse();
@@ -1069,13 +1169,13 @@ document.getElementById('resultSpheres').textContent = result.sphereCount;
 document.getElementById('resultCones').textContent = result.coneCount;
 document.getElementById('resultLevels').textContent = result.levels;
 document.getElementById('resultParts').textContent = result.parts;
-document.getElementById('shapeName').textContent = result.name;
+document.getElementById('shapeName').textContent = result.recognized ? `這是：${result.name}` : result.name;
 document.getElementById('shapeMessage').textContent = result.message;
 const details = [];
 if (vertices.length) {
 details.push(`<b>每個頂點連接的稜：</b><br>${vertices.map((vertex) => `頂點 ${vertex.userData.id}：${result.degree.get(vertex) || 0} 條`).join('　 ')}`);
 }
-if (result.slantedCount) details.push(`<b>斜稜：</b>${result.slantedCount} 條，可用來組裝三角錐和四角錐。`);
+if (result.slantedCount) details.push(`<b>斜稜：</b>${result.slantedCount} 條。`);
 if (result.sphereCount) details.push('<b>球體：</b>只有1個曲面，沒有頂點和稜。');
 if (result.coneCount) details.push('<b>圓錐：</b>有1個尖頂、1個圓形平面和1個曲面。');
 document.getElementById('detail').innerHTML = details.join('<br><br>') || '尚未有模型資料。';
