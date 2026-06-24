@@ -28,6 +28,7 @@ guideGroup.add(mesh);
 function setGuide(type) {
 guideType = type;
 clearGroup(guideGroup);
+guideGroup.visible = true;
 guidePoints = [];
 guideLinks = [];
 if (type === 'none') return;
@@ -56,7 +57,7 @@ const pyramid = type === 'triPyramid' || type === 'squarePyramid';
 const vertexMaterial = new THREE.MeshBasicMaterial({
 color: pyramid ? 0xa78bfa : 0x60a5fa,
 transparent: true,
-opacity: 0.42,
+opacity: 0.48,
 depthWrite: false,
 });
 const edgeMaterial = new THREE.MeshBasicMaterial({
@@ -66,7 +67,7 @@ opacity: 0.28,
 depthWrite: false,
 });
 guidePoints.forEach((point) => {
-const marker = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 14), vertexMaterial.clone());
+const marker = new THREE.Mesh(new THREE.SphereGeometry(0.31, 18, 14), vertexMaterial.clone());
 marker.position.copy(point);
 guideGroup.add(marker);
 });
@@ -76,7 +77,7 @@ function faceMaterial() {
 return new THREE.MeshStandardMaterial({
 color: 0xf59e0b,
 transparent: true,
-opacity: 0.22,
+opacity: 0.25,
 side: THREE.DoubleSide,
 depthWrite: false,
 roughness: 0.55,
@@ -105,8 +106,36 @@ if (!edgeExists(vertexList[i], vertexList[j])) return false;
 }
 return true;
 }
+function guideVertices() {
+return guidePoints.map((point) => findVertexAt(point));
+}
+function guideIsComplete() {
+if (!guidePoints.length) return false;
+const mapped = guideVertices();
+if (mapped.some((vertex) => !vertex)) return false;
+return guideLinks.every(([a, b]) => edgeExists(mapped[a], mapped[b]));
+}
 function updateFaces() {
 clearGroup(faceGroup);
+guideGroup.visible = true;
+if ((guideType === 'triPyramid' || guideType === 'squarePyramid') && guideIsComplete()) {
+const mapped = guideVertices();
+if (guideType === 'triPyramid') {
+addTriangleFace(mapped[0].position, mapped[1].position, mapped[2].position);
+addTriangleFace(mapped[0].position, mapped[1].position, mapped[3].position);
+addTriangleFace(mapped[0].position, mapped[2].position, mapped[3].position);
+addTriangleFace(mapped[1].position, mapped[2].position, mapped[3].position);
+} else {
+addTriangleFace(mapped[0].position, mapped[1].position, mapped[2].position);
+addTriangleFace(mapped[0].position, mapped[2].position, mapped[3].position);
+addTriangleFace(mapped[0].position, mapped[1].position, mapped[4].position);
+addTriangleFace(mapped[1].position, mapped[2].position, mapped[4].position);
+addTriangleFace(mapped[2].position, mapped[3].position, mapped[4].position);
+addTriangleFace(mapped[3].position, mapped[0].position, mapped[4].position);
+}
+guideGroup.visible = false;
+return;
+}
 if (vertices.length === 4 && edges.length === 6 && hasCompleteGraph(vertices)) {
 addTriangleFace(vertices[0].position, vertices[1].position, vertices[2].position);
 addTriangleFace(vertices[0].position, vertices[1].position, vertices[3].position);
@@ -146,12 +175,35 @@ return va && vb && edgeExists(va, vb);
 }).length;
 return { placed, totalPoints: guidePoints.length, completeLinks, totalLinks: guideLinks.length };
 }
+function endpointCandidate(clientX, clientY, exceptVertex = null, createMissing = false) {
+const existing = nearestVertex(clientX, clientY, exceptVertex, 92);
+if (existing) return { vertex: existing.vertex, position: existing.vertex.position.clone(), fromGuide: false };
+const guide = nearestGuidePoint(clientX, clientY, exceptVertex);
+if (!guide) return null;
+let vertex = findVertexAt(guide.position, exceptVertex);
+if (!vertex && createMissing) vertex = createVertex(guide.position);
+return { vertex, position: guide.position.clone(), fromGuide: true, guideIndex: guide.index };
+}
+function showFirstEndpoint(vertex, mode) {
+clearPreview();
+snapHaloA.position.copy(vertex.position);
+snapHaloA.visible = true;
+setHint(mode === 'free' ? '已選第一點；再撳另一個紫色或藍色點' : '已選第一點；再撳第二個藍色點', true);
+}
+function createConnection(start, target, requestedMode) {
+if (!start || !target || start === target) return null;
+const actualMode = requestedMode === 'free'
+? (isAxisAligned(start.position, target.position) ? 'straight' : 'free')
+: 'straight';
+if (actualMode === 'straight' && !isAxisAligned(start.position, target.position)) return 'needs-free';
+return createEdge(start, target, actualMode);
+}
 ui.guideSelect.addEventListener('change', (event) => {
 setGuide(event.target.value);
 if (event.target.value === 'triPyramid' || event.target.value === 'squarePyramid') {
 setToolsOpen(false);
-setActiveTool('vertex', { keepDrawer: true });
-showToast('第一步：撳淡紫色圓點放置全部頂點');
+setActiveTool('free', { keepDrawer: true });
+showToast('直接撳兩個紫色或藍色點連線；缺少的頂點會自動建立');
 } else {
 setActiveTool(null, { keepDrawer: true });
 showToast(event.target.value === 'none' ? '已關閉導引' : '已顯示淡色導引');
@@ -164,30 +216,21 @@ const tool = card.dataset.tool === 'edge'
 : card.dataset.tool === 'free-edge'
 ? 'free'
 : card.dataset.tool;
-setActiveTool(tool);
+setActiveTool(tool, { toggle: true });
 });
 });
 renderer.domElement.addEventListener('pointermove', (event) => {
 if (activeTool === 'vertex' && !pointerDown) {
 const candidate = placementCandidate(event.clientX, event.clientY);
-if (candidate) showPlacementPreview(candidate.position, candidate.fromGuide ? '放手／撳下會吸附到導引點' : '撳下放置頂點');
+if (candidate) showPlacementPreview(candidate.position, candidate.fromGuide ? '撳下會吸附到導引點' : '撳下放置頂點');
 return;
 }
-if (edgeDraw) {
-const nearest = nearestVertex(event.clientX, event.clientY, edgeDraw.start);
-edgeDraw.target = nearest?.vertex || null;
-if (edgeDraw.target) {
-const valid = edgeDraw.mode === 'free' || isAxisAligned(edgeDraw.start.position, edgeDraw.target.position);
-if (valid) showConnectionPreview(edgeDraw.start, edgeDraw.target, edgeDraw.mode);
-else {
-clearPreview();
-setHint('直稜只可水平、前後或垂直；請改用斜稜', false);
-}
+if ((activeTool === 'straight' || activeTool === 'free') && edgeDraw?.start) {
+const candidate = endpointCandidate(event.clientX, event.clientY, edgeDraw.start, false);
+if (candidate && candidate.position) {
+showConnectionPreview(edgeDraw.start, candidate.vertex || { position: candidate.position }, activeTool);
 } else {
-clearPreview();
-snapHaloA.position.copy(edgeDraw.start.position);
-snapHaloA.visible = true;
-setHint('拖到第二個頂點，目標會亮綠色', true);
+showFirstEndpoint(edgeDraw.start, activeTool);
 }
 return;
 }
@@ -229,12 +272,7 @@ setHint('放手後移到綠色位置', true);
 });
 renderer.domElement.addEventListener('pointerdown', (event) => {
 pointerDown = { x: event.clientX, y: event.clientY };
-if (activeTool === 'vertex') {
-event.preventDefault();
-controls.enabled = false;
-return;
-}
-if (activeTool === 'sphere' || activeTool === 'cone') {
+if (activeTool === 'vertex' || activeTool === 'sphere' || activeTool === 'cone') {
 event.preventDefault();
 controls.enabled = false;
 return;
@@ -242,15 +280,6 @@ return;
 if (activeTool === 'straight' || activeTool === 'free') {
 event.preventDefault();
 controls.enabled = false;
-const start = nearestVertex(event.clientX, event.clientY, null, 60)?.vertex;
-if (!start) {
-showToast('請由第一個藍色頂點開始拖動');
-return;
-}
-edgeDraw = { start, target: null, mode: activeTool };
-snapHaloA.position.copy(start.position);
-snapHaloA.visible = true;
-setHint('拖到第二個頂點，目標會亮綠色', true);
 return;
 }
 const object = pickObject(event.clientX, event.clientY);
