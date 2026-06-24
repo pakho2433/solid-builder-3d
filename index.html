@@ -4,43 +4,121 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta name="theme-color" content="#edf4fb" />
-<title>立體圖形建構室｜自動吸附連接</title>
-<link rel="stylesheet" href="style.css?v=5">
+<title>立體圖形建構室｜頂點、稜與曲面立體</title>
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <div class="app">
 <header>
-  <div class="brand"><div class="brand-mark"><svg width="27" height="27" viewBox="0 0 30 30" fill="none"><circle cx="8" cy="8" r="4.2" fill="#315eea"/><circle cx="22" cy="7" r="4.2" fill="#315eea"/><circle cx="15" cy="22" r="4.2" fill="#315eea"/><path d="M10.9 9.8 19 8.2M9.7 11.5l3.8 7M20.2 10.6l-3.1 7.4" stroke="#172033" stroke-width="2.3" stroke-linecap="round"/></svg></div><div><h1>立體圖形建構室</h1><p>拖近位置，自動吸附連接</p></div></div>
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">
+      <svg width="27" height="27" viewBox="0 0 30 30" fill="none"><circle cx="8" cy="8" r="4.2" fill="#315eea"/><circle cx="22" cy="7" r="4.2" fill="#315eea"/><circle cx="15" cy="22" r="4.2" fill="#315eea"/><path d="M10.9 9.8 19 8.2M9.7 11.5l3.8 7M20.2 10.6l-3.1 7.4" stroke="#172033" stroke-width="2.3" stroke-linecap="round"/></svg>
+    </div>
+    <div><h1>立體圖形建構室</h1><p>拖動、吸附，自由組裝立體圖形</p></div>
+  </div>
   <button class="icon-btn" id="helpBtn" aria-label="使用說明"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9.8 9a2.35 2.35 0 1 1 3.7 1.92c-.9.64-1.5 1.15-1.5 2.08" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></button>
 </header>
+
 <main class="workspace">
   <div class="canvas-wrap" id="canvasWrap"></div>
-  <div class="hud"><div class="hud-left"><div class="pill"><b id="vertexCount">0</b>頂點</div><div class="pill"><b id="edgeCount">0</b>稜</div><div class="pill"><b id="solidCount">0</b>曲面立體</div></div><div class="hud-right"><select class="guide-select" id="guideSelect"><option value="none">自由創作</option><option value="cube">正方體導引</option><option value="cuboid">長方體導引</option></select><button class="guide-select quick-clear" id="quickClearBtn">立即清空</button><button class="icon-btn" id="resetViewBtn" title="重設視角">↻</button></div></div>
-  <div class="hint" id="hint">拖動頂點或稜；綠色位置代表放手後會自動連接</div>
+
+  <div class="hud">
+    <div class="hud-left">
+      <div class="pill"><b id="vertexCount">0</b>頂點</div>
+      <div class="pill"><b id="edgeCount">0</b>稜</div>
+      <div class="pill optional-count"><b id="solidCount">0</b>曲面立體</div>
+    </div>
+    <div class="hud-right">
+      <select class="guide-select" id="guideSelect" aria-label="選擇導引圖形">
+        <option value="none">自由創作</option>
+        <option value="cube">正方體導引</option>
+        <option value="cuboid">長方體導引</option>
+        <option value="triPyramid">三角錐導引</option>
+        <option value="squarePyramid">四角錐導引</option>
+      </select>
+      <button class="guide-select quick-clear" id="quickClearBtn">立即清空</button>
+      <button class="icon-btn" id="resetViewBtn" title="重設視角" aria-label="重設視角">↻</button>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">撳下方箭嘴展開工具；綠色位置代表可自動吸附</div>
   <div class="toast" id="toast"></div>
-  <div class="selection" id="selection"><span class="selection-name" id="selectionName">已選取</span><button id="moveUpBtn">↑ 一層</button><button id="moveDownBtn">↓ 一層</button><button class="delete" id="deleteBtn">刪除</button></div>
-  <section class="toolbox" aria-label="零件盒">
-    <div class="tool-card" data-tool="vertex"><span class="vertex-icon"></span><span class="tool-copy">拖出頂點<small>靠近綠色位置會自動連接</small></span></div>
-    <div class="tool-card" data-tool="edge"><span class="edge-icon"></span><span class="tool-copy">拖出稜<small>靠近頂點會自動接上</small></span></div>
-    <div class="tool-card" data-tool="sphere"><span class="sphere-icon"></span><span class="tool-copy">拖出球體<small>曲面立體</small></span></div>
-    <div class="tool-card" data-tool="cone"><span class="cone-icon"></span><span class="tool-copy">拖出圓錐<small>曲面立體</small></span></div>
-    <div class="layer-box"><div class="layer-title">放置樓層</div><div class="layer-controls"><button id="layerDown">−</button><div class="layer-value">第 <span id="layerValue">1</span> 層</div><button id="layerUp">＋</button></div></div>
-    <button class="finish-btn" id="finishBtn">完成<br>看數據</button>
+
+  <div class="selection" id="selection">
+    <span class="selection-name" id="selectionName">已選取</span>
+    <button id="moveUpBtn">↑ 一層</button>
+    <button id="moveDownBtn">↓ 一層</button>
+    <button class="delete" id="deleteBtn">刪除</button>
+  </div>
+
+  <section class="toolbox collapsed" id="toolbox" aria-label="零件工具抽屜">
+    <button class="tool-toggle" id="toolToggle" aria-expanded="false">
+      <span class="tool-arrow" id="toolArrow">⌃</span>
+      <span id="toolToggleText">展開零件工具</span>
+    </button>
+
+    <div class="tool-scroll" id="toolScroll">
+      <div class="tool-card" data-tool="vertex">
+        <span class="vertex-icon"></span><span class="tool-copy">拖出頂點<small>靠近位置會吸附</small></span>
+      </div>
+      <div class="tool-card" data-tool="edge">
+        <span class="edge-icon"></span><span class="tool-copy">拖出直稜<small>水平、前後、垂直</small></span>
+      </div>
+      <div class="tool-card pyramid-tool" data-tool="free-edge">
+        <span class="slanted-edge-icon"></span><span class="tool-copy">拖出斜稜<small>組裝三角錐、四角錐</small></span>
+      </div>
+      <div class="tool-card" data-tool="sphere">
+        <span class="sphere-icon"></span><span class="tool-copy">拖出球體<small>完整曲面立體</small></span>
+      </div>
+      <div class="tool-card" data-tool="cone">
+        <span class="cone-icon"></span><span class="tool-copy">拖出圓錐<small>完整曲面立體</small></span>
+      </div>
+      <div class="layer-box">
+        <div class="layer-title">放置樓層</div>
+        <div class="layer-controls"><button id="layerDown">−</button><div class="layer-value">第 <span id="layerValue">1</span> 層</div><button id="layerUp">＋</button></div>
+      </div>
+      <button class="finish-btn" id="finishBtn">完成<br>看數據</button>
+    </div>
   </section>
 </main>
 </div>
+
 <div class="drag-ghost" id="dragGhost"><span id="ghostIcon"></span><span id="ghostText"></span></div>
 
-<div class="modal-bg" id="dataModal"><section class="modal"><h2>模型數據</h2><p class="lead">系統根據頂點、稜、曲面立體和樓層分析你的模型。</p><div class="data-grid"><div class="data-card"><b id="resultVertices">0</b><span>頂點總數</span></div><div class="data-card"><b id="resultEdges">0</b><span>稜總數</span></div><div class="data-card"><b id="resultSpheres">0</b><span>球體數量</span></div><div class="data-card"><b id="resultCones">0</b><span>圓錐數量</span></div><div class="data-card"><b id="resultLevels">0</b><span>使用樓層</span></div><div class="data-card"><b id="resultParts">0</b><span>相連部分</span></div></div><div class="result"><strong id="shapeName">自由創作模型</strong><p id="shapeMessage"></p></div><div class="detail" id="detail"></div><div class="modal-actions"><button id="continueBtn">繼續修改</button><button class="primary" id="clearBtn">重新開始</button></div></section></div>
+<div class="modal-bg" id="dataModal">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="dataTitle">
+    <h2 id="dataTitle">模型數據</h2>
+    <p class="lead">系統會分析頂點、直稜、斜稜、曲面立體及樓層。</p>
+    <div class="data-grid">
+      <div class="data-card"><b id="resultVertices">0</b><span>頂點總數</span></div>
+      <div class="data-card"><b id="resultEdges">0</b><span>稜總數</span></div>
+      <div class="data-card"><b id="resultSlanted">0</b><span>斜稜數量</span></div>
+      <div class="data-card"><b id="resultSpheres">0</b><span>球體數量</span></div>
+      <div class="data-card"><b id="resultCones">0</b><span>圓錐數量</span></div>
+      <div class="data-card"><b id="resultLevels">0</b><span>使用樓層</span></div>
+      <div class="data-card"><b id="resultParts">0</b><span>相連部分</span></div>
+    </div>
+    <div class="result"><strong id="shapeName">自由創作模型</strong><p id="shapeMessage"></p></div>
+    <div class="detail" id="detail"></div>
+    <div class="modal-actions"><button id="continueBtn">繼續修改</button><button class="primary" id="clearBtn">重新開始</button></div>
+  </section>
+</div>
 
-<div class="modal-bg" id="helpModal"><section class="modal"><h2>怎樣組裝？</h2><p class="lead">頂點和稜可自動吸附；球體與圓錐可直接拖入畫布。</p><div class="help-list"><div class="help-item"><div class="help-no">1</div><div><b>拖出頂點</b><p>將頂點拉入圖格。靠近另一頂點的連接位置時，位置會變成綠色，放手後自動加入稜。</p></div></div><div class="help-item"><div class="help-no">2</div><div><b>拖出稜</b><p>將稜拖近模型，最近的兩個連接位置會亮綠色，放手後自動接上。</p></div></div><div class="help-item"><div class="help-no">3</div><div><b>加入曲面立體</b><p>球體沒有頂點和稜；圓錐有一個尖頂、圓形底面及曲面。直接將工具拖入圖格即可。</p></div></div><div class="help-item"><div class="help-no">4</div><div><b>隨時改變</b><p>所有已放置物件都可再次拖動、轉換樓層、選取及刪除。</p></div></div></div><div class="modal-actions" style="grid-template-columns:1fr"><button class="primary" id="closeHelpBtn">開始組裝</button></div></section></div>
+<div class="modal-bg" id="helpModal">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">怎樣組裝？</h2>
+    <p class="lead">圓錐是完整曲面立體；三角錐和四角錐要用頂點與稜親自組裝。</p>
+    <div class="help-list">
+      <div class="help-item"><div class="help-no">1</div><div><b>展開或收起工具</b><p>撳畫面底部箭嘴展開工具；完成選擇後可再次收起，iPad會有更大畫布。</p></div></div>
+      <div class="help-item"><div class="help-no">2</div><div><b>直稜與斜稜</b><p>正方體、長方體用直稜；三角錐、四角錐由頂點連向尖頂時使用斜稜。</p></div></div>
+      <div class="help-item"><div class="help-no">3</div><div><b>組裝錐體</b><p>先選三角錐或四角錐導引，放置底面頂點和上層尖頂，再把斜稜拖近兩個頂點，綠色亮起後放手。</p></div></div>
+      <div class="help-item"><div class="help-no">4</div><div><b>曲面立體</b><p>球體和圓錐可直接拖入畫布；它們與用頂點、稜組裝的稜錐不同。</p></div></div>
+    </div>
+    <div class="modal-actions one-column"><button class="primary" id="closeHelpBtn">開始組裝</button></div>
+  </section>
+</div>
 
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.161.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.161.0/examples/jsm/"}}</script>
-<script type="module" src="app.js?v=6"></script>
-<script>
-document.getElementById('quickClearBtn').addEventListener('click',function(){
-  if(window.confirm('確定要立即清空所有頂點、稜、球體和圓錐嗎？')) window.location.reload();
-});
-</script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>
