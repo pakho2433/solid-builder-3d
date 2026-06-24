@@ -36,7 +36,7 @@
 <div class="modal-bg" id="helpModal"><section class="modal"><h2>怎樣組裝？</h2><p class="lead">頂點和稜可自動吸附；球體與圓錐可直接拖入畫布。</p><div class="help-list"><div class="help-item"><div class="help-no">1</div><div><b>拖出頂點</b><p>將頂點拉入圖格。靠近另一頂點的連接位置時，位置會變成綠色，放手後自動加入稜。</p></div></div><div class="help-item"><div class="help-no">2</div><div><b>拖出稜</b><p>將稜拖近模型，最近的兩個連接位置會亮綠色，放手後自動接上。</p></div></div><div class="help-item"><div class="help-no">3</div><div><b>加入曲面立體</b><p>球體沒有頂點和稜；圓錐有一個尖頂、圓形底面及曲面。直接將工具拖入圖格即可。</p></div></div><div class="help-item"><div class="help-no">4</div><div><b>隨時改變</b><p>所有已放置物件都可再次拖動、轉換樓層、選取及刪除。</p></div></div></div><div class="modal-actions" style="grid-template-columns:1fr"><button class="primary" id="closeHelpBtn">開始組裝</button></div></section></div>
 
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.161.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.161.0/examples/jsm/"}}</script>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 <script>
 document.getElementById('quickClearBtn').addEventListener('click',function(){
   if(window.confirm('確定要立即清空所有頂點、稜、球體和圓錐嗎？')) window.location.reload();
