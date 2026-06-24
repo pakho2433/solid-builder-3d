@@ -842,66 +842,74 @@ clearPreview();
 if (!candidate) return;
 const vertex = createVertex(candidate.position);
 selectVertex(vertex);
-const progress = guideProgress();
-if (guideType === 'triPyramid' || guideType === 'squarePyramid') {
-if (progress && progress.placed >= progress.totalPoints) {
-setActiveTool('free', { keepDrawer: true });
-showToast('全部頂點已放好。第二步：由一個頂點拖到另一個頂點畫斜稜');
-} else {
-showToast(`已放置 ${progress?.placed || 0}/${progress?.totalPoints || 0} 個導引頂點`);
-}
-} else {
 setActiveTool(null, { keepDrawer: true });
 showToast('已放置頂點');
-}
-controls.enabled = !activeTool;
+controls.enabled = true;
 return;
 }
 if (activeTool === 'sphere' || activeTool === 'cone') {
 const candidate = placementCandidate(event.clientX, event.clientY);
 clearPreview();
 if (candidate) {
-const solid = createSolid(activeTool, candidate.position);
+const type = activeTool;
+const solid = createSolid(type, candidate.position);
 selectSolid(solid);
-showToast(`已加入${activeTool === 'sphere' ? '球體' : '圓錐'}`);
+showToast(`已加入${type === 'sphere' ? '球體' : '圓錐'}`);
 }
 setActiveTool(null, { keepDrawer: true });
 controls.enabled = true;
 return;
 }
-if (edgeDraw) {
-const draw = edgeDraw;
+if (activeTool === 'straight' || activeTool === 'free') {
+const endpoint = endpointCandidate(event.clientX, event.clientY, edgeDraw?.start || null, true);
+if (!endpoint?.vertex) {
+showToast('請撳紫色導引點或藍色頂點');
+if (edgeDraw?.start) showFirstEndpoint(edgeDraw.start, activeTool);
+controls.enabled = false;
+return;
+}
+if (!edgeDraw?.start) {
+edgeDraw = { start: endpoint.vertex, mode: activeTool };
+showFirstEndpoint(endpoint.vertex, activeTool);
+showToast('已選第一點，現在撳第二個點');
+controls.enabled = false;
+return;
+}
+const start = edgeDraw.start;
+const target = endpoint.vertex;
+if (start === target) {
+showFirstEndpoint(start, activeTool);
+showToast('第二點要揀另一個位置');
+controls.enabled = false;
+return;
+}
+const result = createConnection(start, target, activeTool);
 edgeDraw = null;
 clearPreview();
-const target = nearestVertex(event.clientX, event.clientY, draw.start)?.vertex || draw.target;
-if (!target) {
-showToast('未接到第二個頂點，請再試一次');
+if (result === 'needs-free') {
+showToast('這兩點不是直線，請使用紫色斜稜');
+setHint('請選紫色斜稜，再點兩個頂點', false);
 controls.enabled = false;
 return;
 }
-if (draw.mode === 'straight' && !isAxisAligned(draw.start.position, target.position)) {
-showToast('這兩點需要斜稜，請選紫色斜稜');
-controls.enabled = false;
-return;
-}
-const edge = createEdge(draw.start, target, draw.mode);
-if (!edge) {
+if (!result) {
 showToast('這兩個頂點已經連接');
 } else {
-selectEdge(edge);
 const progress = guideProgress();
 if ((guideType === 'triPyramid' || guideType === 'squarePyramid') && progress) {
 if (progress.completeLinks >= progress.totalLinks) {
 setActiveTool(null, { keepDrawer: true });
-showToast('錐體完成！系統已自動顯示半透明面');
+showToast('錐體完成！已自動顯示半透明面');
+controls.enabled = true;
+return;
+}
+showToast(`已完成 ${progress.completeLinks}/${progress.totalLinks} 條稜；繼續點兩個位置`);
 } else {
-showToast(`已完成 ${progress.completeLinks}/${progress.totalLinks} 條導引稜`);
-}
-} else {
-setActiveTool(null, { keepDrawer: true });
+showToast('已完成連線；可繼續點兩個頂點');
 }
 }
-controls.enabled = !activeTool;
+setHint(activeTool === 'free' ? '先撳第一個紫色或藍色點，再撳第二個點' : '先撳第一個藍色點，再撳第二個點', true);
+controls.enabled = false;
 return;
 }
 if (objectDrag) {
@@ -938,7 +946,7 @@ selectSolid(drag.item);
 }
 return;
 }
-if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) < 6) {
+if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) < 8) {
 const object = pickObject(event.clientX, event.clientY);
 if (!object) {
 clearSelection();
@@ -954,9 +962,11 @@ selectSolid(object);
 renderer.domElement.addEventListener('pointercancel', () => {
 if (objectDrag?.item && objectDrag.original) objectDrag.item.position.copy(objectDrag.original);
 objectDrag = null;
-edgeDraw = null;
 pointerDown = null;
 clearPreview();
+if (edgeDraw?.start && (activeTool === 'straight' || activeTool === 'free')) {
+showFirstEndpoint(edgeDraw.start, activeTool);
+}
 controls.enabled = !activeTool;
 edges.forEach(updateEdge);
 });
@@ -1021,6 +1031,11 @@ let message = '模型包含直稜、斜稜或曲面立體。';
 if (!vertices.length && !solids.length) {
 name = '模型仍是空白';
 message = '先展開工具，再加入頂點、稜、球體或圓錐。';
+} else if ((guideType === 'triPyramid' || guideType === 'squarePyramid') && guideIsComplete()) {
+name = guideType === 'triPyramid' ? '三角錐（四面體）' : '四角錐';
+message = guideType === 'triPyramid'
+? '共有4個頂點、6條稜和4個三角形面。'
+: '共有5個頂點、8條稜、1個四邊形底面和4個三角形側面。';
 } else if (vertices.length === 4 && edges.length === 6 && hasCompleteGraph(vertices)) {
 name = '三角錐（四面體）';
 message = '共有4個頂點、6條稜和4個三角形面。';
