@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#58a96b" />
+  <title>香港公園購物冒險｜3D 港幣學習遊戲（動畫精緻版）</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="topHud">
+  <div id="missionHud" class="hudCard glass">
+    <div class="hudIcon">📋</div>
+    <div style="min-width:0"><div id="missionText">先去搵媽媽接任務</div><div id="missionSub">行近角色，再按「互動」</div></div>
+  </div>
+  <div id="moneyHud" class="hudCard glass"><div>銀包<strong id="walletTotal">$0.00</strong></div></div>
+</div>
+<div id="message"></div>
+<button id="interact">互動</button>
+<div id="joystick"><div id="stick"></div></div>
+<div id="actionHint">WASD／方向鍵移動｜直接拖動3D畫面旋轉視角｜E 互動</div>
+<div id="inventoryPanel" class="glass"><strong>🛍️ 已買物品</strong><div id="inventoryItems"></div></div>
+
+<div id="startOverlay" class="overlay open">
+  <div class="panel glass">
+    <h1 class="bigTitle">🏞️ 香港金錢任務<br>3D 公園購物大挑戰</h1><div style="font-weight:900;color:#2f8f5b;margin-top:5px">✨ 動畫精緻版</div>
+    <p>在公園搵媽媽接購物任務，去四間店揀啱貨品，再用香港硬幣及紙幣付款，最後交貨畀媽媽。</p>
+    <div class="startGrid">
+      <div class="how">
+        <div>1️⃣ 行近媽媽，按「接任務」</div>
+        <div>2️⃣ 根據清單到正確店舖選貨</div>
+        <div>3️⃣ 媽媽會畀多過總額嘅錢，請只拖啱金額</div>
+        <div>4️⃣ 直接拖動3D畫面轉視角，買齊後返媽媽交任務</div>
+      </div>
+      <div>
+        <strong>真實香港貨幣參考圖：</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px">
+          <img alt="香港20元紙幣樣本" style="width:100%;border-radius:8px;border:1px solid #cfd9cf" src="https://www.hkma.gov.hk/media/eng/img/key-functions/money/notes-and-coins/notes/design-security-features-of-currency-notes/2018/HSBC/20/HSBC_20_%28Front%29.jpg">
+          <img alt="香港50元紙幣樣本" style="width:100%;border-radius:8px;border:1px solid #cfd9cf" src="https://www.hkma.gov.hk/media/eng/img/key-functions/money/notes-and-coins/notes/design-security-features-of-currency-notes/2018/HSBC/50/HSBC_50_%28Front%29.jpg">
+          <img alt="香港硬幣套裝" style="grid-column:1/-1;width:100%;height:94px;object-fit:contain;border-radius:8px;border:1px solid #cfd9cf;background:white" src="https://www.hkma.gov.hk/media/eng/img/key-functions/money/hong-kong-currency/money-past-and-present/history-and-evolution-of-coins-in-hong-kong/1993-1.jpg">
+        </div>
+        <p style="font-size:11px;opacity:.72;margin-bottom:0">紙幣使用香港金融管理局樣本圖；硬幣付款卡會按香港現行面額、顏色及形狀清楚顯示。</p>
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px"><button id="startBtn" class="primary">開始遊戲</button><button id="soundBtn" class="secondary">🔊 聲效：開</button></div>
+  </div>
+</div>
+
+<div id="dialogOverlay" class="overlay">
+  <div class="panel glass" style="max-width:600px">
+    <button class="closeX" data-close="dialogOverlay">×</button>
+    <h2 id="dialogTitle">媽媽</h2>
+    <div id="dialogBody"></div>
+    <div id="shoppingList"></div>
+    <div id="dialogActions" class="row"></div>
+  </div>
+</div>
+
+<div id="shopOverlay" class="overlay">
+  <div class="panel glass">
+    <button class="closeX" data-close="shopOverlay">×</button>
+    <div id="shopHeader"><div id="shopEmoji">🏪</div><div><h2 id="shopTitle">店舖</h2><div id="shopSubtitle">請選擇清單上的貨品</div></div></div>
+    <div id="products"></div>
+    <div id="cartBar"><div id="cartInfo">未選貨品</div><button id="toCheckoutBtn" class="primary" disabled>去付款</button></div>
+  </div>
+</div>
+
+<div id="checkoutOverlay" class="overlay">
+  <div id="checkoutPanel" class="glass">
+    <div id="checkoutTop"><div><div id="checkoutSummary">購買貨品</div><div>應付：<span id="amountDue">$0.00</span></div></div><button id="cancelCheckout" class="secondary">返回揀貨</button></div>
+    <div id="tray"></div>
+    <div id="payProgress"><span>已放：<span id="paidAmount">$0.00</span></span><span id="payFeedback">尚欠 $0.00</span></div>
+    <div id="walletTitle"><span>👇 把金錢拖到上面收銀盤<br><span class="sourceNote">紙幣：HKMA官方樣本圖｜硬幣：現行面額教學卡</span></span><img id="realCoinRef" alt="真正香港硬幣參考圖" src="https://www.hkma.gov.hk/media/eng/img/key-functions/money/hong-kong-currency/money-past-and-present/history-and-evolution-of-coins-in-hong-kong/1993-1.jpg"></div>
+    <div id="wallet"></div>
+    <div id="checkoutActions"><button id="clearTray" class="secondary">全部取回</button><button id="payBtn" class="primary" disabled>確認付款</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
